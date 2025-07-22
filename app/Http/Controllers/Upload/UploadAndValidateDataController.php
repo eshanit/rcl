@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Upload;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Rap2hpoutre\FastExcel\FastExcel; 
-use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\LazyCollection;
 use Inertia\Inertia;
+use Rap2hpoutre\FastExcel\FastExcel;
 
 class UploadAndValidateDataController extends Controller
 {
@@ -46,7 +46,13 @@ class UploadAndValidateDataController extends Controller
             ], 422);
         }
 
-        return $this->validateFile($request, 'patients_file', $this->patientHeaders, 'patients');
+        $result = $this->validateFile($request, 'patients_file', $this->patientHeaders, 'patients');
+
+        session()->forget('cross_validation');
+        // Store in session
+        session(['patients_validation' => $result]);
+
+        return $result;
     }
 
     /**
@@ -54,7 +60,20 @@ class UploadAndValidateDataController extends Controller
      */
     public function uploadVisits(Request $request)
     {
-        return $this->validateFile($request, 'visits_file', $this->visitsHeaders, 'visits');
+        if (! $request->hasFile('visits_file')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No file was uploaded.',
+            ], 422);
+        }
+
+        $result = $this->validateFile($request, 'visits_file', $this->visitsHeaders, 'visits');
+
+        session()->forget('cross_validation');
+        // Store in session
+        session(['visits_validation' => $result]);
+
+        return $result;
     }
 
     /**
@@ -62,6 +81,8 @@ class UploadAndValidateDataController extends Controller
      */
     public function validateFiles(Request $request)
     {
+
+        // dd($request->all());
 
         $validator = Validator::make($request->all(), [
             'patients_data' => 'required|array',
@@ -77,8 +98,11 @@ class UploadAndValidateDataController extends Controller
         }
 
         try {
-            $patientNumbers = $this->extractPatientNumbersFromArray($request->patients_data);
-            $visitsPatientNumbers = $this->extractPatientNumbersFromArray($request->visits_data);
+            // $patientNumbers = $this->extractPatientNumbersFromArray($request->patients_data);
+            // $visitsPatientNumbers = $this->extractPatientNumbersFromArray($request->visits_data);
+
+            $patientNumbers = $request->patients_data;
+            $visitsPatientNumbers = $request->visits_data;
 
             // Find visits PatientNumbers that don't exist in patients file
             $orphanedNumbers = array_diff($visitsPatientNumbers, $patientNumbers);
@@ -104,7 +128,7 @@ class UploadAndValidateDataController extends Controller
                 ];
             }
 
-            return response()->json([
+            $response = [
                 'status' => count($issues) ? 'warning' : 'success',
                 'message' => count($issues)
                     ? 'Cross-file validation completed with issues'
@@ -114,9 +138,16 @@ class UploadAndValidateDataController extends Controller
                 'issues' => $issues,
                 'stats' => [
                     'total_patients' => count($patientNumbers),
-                    'total_visits' => count($request->visits_data),
+                    'total_visits' => '-',
                     'unique_patient_visits' => count($visitsPatientNumbers),
                 ],
+            ];
+
+            // Store in session
+            session(['cross_validation' => $response]);
+
+              return Inertia::render('uploads/PatientData', [
+                'validationResult' => $response,
             ]);
 
         } catch (\Exception $e) {
@@ -136,7 +167,7 @@ class UploadAndValidateDataController extends Controller
         try {
             // Get first row only for headers
             $actualHeaders = array_keys((new FastExcel)->import($filePath)->first() ?: []);
-            
+
             // Normalize headers
             $normalize = function ($header) {
                 return strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $header));
@@ -188,11 +219,11 @@ class UploadAndValidateDataController extends Controller
     // Helper methods for issue collection
     private function collectIssue(array &$issues, string $type, int $rowNumber, ?string $field = null, $value = null)
     {
-        if (!isset($issues[$type])) {
+        if (! isset($issues[$type])) {
             $issues[$type] = [
                 'count' => 0,
                 'examples' => [],
-                'field' => $field
+                'field' => $field,
             ];
         }
 
@@ -200,7 +231,9 @@ class UploadAndValidateDataController extends Controller
 
         if (count($issues[$type]['examples']) < 10) {
             $example = ['row' => $rowNumber];
-            if ($value !== null) $example['value'] = $value;
+            if ($value !== null) {
+                $example['value'] = $value;
+            }
             $issues[$type]['examples'][] = $example;
         }
     }
@@ -209,7 +242,7 @@ class UploadAndValidateDataController extends Controller
     {
         $dateFields = ['DateBorn', 'StartARTDate', 'FirstPositiveHIVTest'];
         foreach ($dateFields as $field) {
-            if (!empty($row[$field]) && !$this->isValidDate($row[$field])) {
+            if (! empty($row[$field]) && ! $this->isValidDate($row[$field])) {
                 $this->collectIssue($issues, 'invalid_date', $rowNumber, $field, $row[$field]);
             }
         }
@@ -219,7 +252,7 @@ class UploadAndValidateDataController extends Controller
     {
         $numericFields = ['Weight', 'HeightChildren', 'BMI', 'CD4', 'ViralLoad', 'TLC', 'CD4percent'];
         foreach ($numericFields as $field) {
-            if (!empty($row[$field]) && !is_numeric($row[$field])) {
+            if (! empty($row[$field]) && ! is_numeric((float) $row[$field]) && strtoupper($row[$field]) !== 'NA') {
                 $this->collectIssue($issues, 'non_numeric', $rowNumber, $field, $row[$field]);
             }
         }
@@ -227,18 +260,23 @@ class UploadAndValidateDataController extends Controller
 
     private function isValidDate($date)
     {
-        if (empty($date) || is_numeric($date)) return true;
-    
+        if (empty($date) || is_numeric($date)) {
+            return true;
+        }
+
         // If already a DateTime or DateTimeImmutable, consider it valid
         if ($date instanceof \DateTimeInterface) {
             return true;
         }
-    
+
         $formats = ['Y-m-d', 'd/m/Y', 'm/d/Y', 'd-m-Y', 'm-d-Y'];
         foreach ($formats as $format) {
             $d = \DateTime::createFromFormat($format, $date);
-            if ($d && $d->format($format) === $date) return true;
+            if ($d && $d->format($format) === $date) {
+                return true;
+            }
         }
+
         return false;
     }
 
@@ -250,35 +288,34 @@ class UploadAndValidateDataController extends Controller
         $formatted = [];
         foreach ($issues as $type => $data) {
             $issue = ['type' => $type, 'count' => $data['count']];
-            
+
             switch ($type) {
                 case 'blank_patient_number':
                     $issue['message'] = 'Rows with blank PatientNumber';
                     $issue['example_rows'] = array_column($data['examples'], 'row');
                     break;
-                    
+
                 case 'invalid_date':
                     $issue['message'] = "Invalid date format for {$data['field']}";
                     $issue['examples'] = $data['examples'];
                     break;
-                    
+
                 case 'non_numeric':
                     $issue['message'] = "Non-numeric values for {$data['field']}";
                     $issue['examples'] = $data['examples'];
                     break;
             }
-            
+
             $formatted[] = $issue;
         }
-        
+
         return $formatted;
     }
-
 
     /**
      * Generic file validation method
      */
-   private function validateFile(Request $request, $fieldName, $requiredHeaders, $fileType)
+    private function validateFile(Request $request, $fieldName, $requiredHeaders, $fileType)
     {
         // Increase time limit to 15 minutes as a safety net
         set_time_limit(900);
@@ -299,12 +336,13 @@ class UploadAndValidateDataController extends Controller
             $file = $request->file($fieldName);
             $filePath = $file->store('temp-uploads');
             $fullPath = Storage::path($filePath);
-            
+
             // Step 1: Validate headers first
             $headerStatus = $this->validateHeaders($fullPath, $requiredHeaders);
 
-            if (!$headerStatus['valid']) {
+            if (! $headerStatus['valid']) {
                 Storage::delete($filePath);
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Header validation failed',
@@ -318,14 +356,14 @@ class UploadAndValidateDataController extends Controller
 
             // Step 2: Process data efficiently
             $result = $this->processLargeFile($fullPath, $fileType);
-            
+
             // Clean up temporary file
             Storage::delete($filePath);
 
             return Inertia::render('uploads/PatientData', [
                 'validationResult' => [
-                    'status' => !empty($result['issues']) ? 'warning' : 'success',
-                    'message' => !empty($result['issues'])
+                    'status' => ! empty($result['issues']) ? 'warning' : 'success',
+                    'message' => ! empty($result['issues'])
                         ? ucfirst($fileType).' file validated with issues'
                         : ucfirst($fileType).' file validated successfully',
                     'file_type' => $fileType,
@@ -336,7 +374,8 @@ class UploadAndValidateDataController extends Controller
                     'issues' => $result['issues'],
                     'data_sample' => $result['sample_rows'],
                     'headers' => $headerStatus['actual'],
-                ]
+                    'patient_numbers' => $result['patient_numbers'],
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -344,7 +383,7 @@ class UploadAndValidateDataController extends Controller
             if (isset($filePath) && Storage::exists($filePath)) {
                 Storage::delete($filePath);
             }
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'File validation failed',
@@ -353,7 +392,7 @@ class UploadAndValidateDataController extends Controller
         }
     }
 
-/**
+    /**
      * Process large Excel files efficiently
      */
     private function processLargeFile($filePath, $fileType)
@@ -372,7 +411,7 @@ class UploadAndValidateDataController extends Controller
             $rowNumber = $recordCount + 1; // +1 for header row
 
             // Collect patient numbers
-            if (!empty($row['PatientNumber'])) {
+            if (! empty($row['PatientNumber'])) {
                 $pn = trim($row['PatientNumber']);
                 $patientNumbers[$pn] = true;
             }
@@ -408,10 +447,10 @@ class UploadAndValidateDataController extends Controller
             'issues' => $this->formatIssues($issues),
             'patient_numbers' => array_keys($patientNumbers),
             'sample_rows' => $sampleRows,
-            'record_count' => $recordCount
+            'record_count' => $recordCount,
         ];
     }
- 
+
     /**
      * Extract patient numbers from data array
      */
@@ -534,6 +573,4 @@ class UploadAndValidateDataController extends Controller
 
         return $issues;
     }
-
-
 }

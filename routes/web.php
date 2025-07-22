@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Upload\ShowDataUploadFormController;
 use App\Http\Controllers\Upload\UploadAndValidateDataController;
+use App\Http\Controllers\Upload\UploadFormGetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,6 +28,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Cross-file validation endpoint
     Route::post('/upload/validate', [UploadAndValidateDataController::class, 'validateFiles'])
         ->name('upload.validate');
+
+   /**
+    * This is to cater for page refreshes
+    */
+
+    Route::get('/upload/patients', UploadFormGetController::class);
+
+     Route::get('/upload/visits', UploadFormGetController::class);
+
+     Route::get('/upload/validate', UploadFormGetController::class);
 
 });
 

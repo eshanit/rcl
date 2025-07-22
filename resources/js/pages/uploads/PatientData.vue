@@ -3,7 +3,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { Card } from '@/components/ui/card';
-// Removed axios import
+
+
 
 const breadcrumbs = [
   { title: 'Dashboard', href: '/dashboard' },
@@ -20,11 +21,10 @@ const uploading = ref({ patients: false, visits: false });
 const uploadProgress = ref({ patients: 0, visits: 0 });
 
 // Validation state
-const validationResults = ref({
-  patients: null as any,
-  visits: null as any,
-  crossValidation: null as any
-});
+const props = defineProps<{ validationResult?: any }>();
+
+const validationResults = ref(props.validationResult || {});
+
 const validating = ref(false);
 const validationProgress = ref(0);
 
@@ -53,7 +53,7 @@ function setFile(file: File | null, type: 'patients' | 'visits') {
   if (type === 'visits') visitsFile.value = file;
 
   // Reset validation when files change
-  validationResults.value = { patients: null, visits: null, crossValidation: null };
+  // validationResults.value = { patients: null, visits: null, crossValidation: null };
 }
 
 // Drag and drop functions
@@ -84,6 +84,8 @@ async function uploadFile(type: 'patients' | 'visits') {
   uploading.value[type] = true;
   uploadProgress.value[type] = 0;
   validationResults.value[type] = null;
+  // Reset cross-validation
+  validationResults.value.crossValidation = null;
 
   const formData = new FormData();
   // Use the correct field name for each type
@@ -122,11 +124,19 @@ async function validateBothFiles() {
   validationResults.value.crossValidation = null;
 
   const formData = new FormData();
-  formData.append('patients_file', patientsFile.value);
-  formData.append('visits_file', visitsFile.value);
+
+  // Append each patient number individually
+  validationResults.value.patients.patient_numbers.forEach((number: string | Blob) => {
+    formData.append('patients_data[]', number);
+  });
+
+  // Append each visit number individually
+  validationResults.value.visits.patient_numbers.forEach((number: string | Blob) => {
+    formData.append('visits_data[]', number);
+  });
 
   router.post(
-    '/validate/cross',
+    '/upload/validate',
     formData,
     {
       forceFormData: true,
@@ -242,7 +252,9 @@ const crossValidationStatus = computed(() => {
           </div>
         </div>
       </div>
-
+      <!-- <pre>
+  {{validationResults.visits  }}
+</pre> -->
       <!-- File Upload Section -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Patients File Card -->
@@ -413,130 +425,139 @@ const crossValidationStatus = computed(() => {
               Patients Validation
             </h3>
 
-            <div v-if="validationResults.patients">
-              <!-- Error State -->
-              <div v-if="patientValidationStatus === 'error'" class="text-red-600 bg-red-50 p-3 rounded">
-                <i class="fas fa-exclamation-circle mr-2"></i>
-                {{ validationResults.patients.message || 'Validation error' }}
+            <div v-if="uploading.patients" class="gear-container">
+              <i class="fas fa-cog text-blue-400 gear-large"></i>
+              <i class="fas fa-cog text-blue-600 gear-medium"></i>
+            </div>
 
-                <!-- Header Mismatch Details -->
-                <div v-if="validationResults.patients.missing_headers" class="mt-3">
-                  <p class="font-medium text-sm">Missing Headers:</p>
-                  <ul class="list-disc pl-5 mt-1">
-                    <li v-for="header in validationResults.patients.missing_headers" :key="header" class="text-sm">
-                      {{ header }}
-                    </li>
-                  </ul>
+            <div v-else>
+              <div v-if="validationResults.patients">
+                <!-- Error State -->
+                <div v-if="patientValidationStatus === 'error'" class="text-red-600 bg-red-50 p-3 rounded">
+                  <i class="fas fa-exclamation-circle mr-2"></i>
+                  {{ validationResults.patients.message || 'Validation error' }}
+
+                  <!-- Header Mismatch Details -->
+                  <div v-if="validationResults.patients.missing_headers" class="mt-3">
+                    <p class="font-medium text-sm">Missing Headers:</p>
+                    <ul class="list-disc pl-5 mt-1">
+                      <li v-for="header in validationResults.patients.missing_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div v-if="validationResults.patients.extra_headers" class="mt-3">
+                    <p class="font-medium text-sm">Extra Headers:</p>
+                    <ul class="list-disc pl-5 mt-1">
+                      <li v-for="header in validationResults.patients.extra_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div v-if="validationResults.patients.required_headers" class="mt-3">
+                    <p class="font-medium text-sm">Required Headers:</p>
+                    <ul class="list-disc pl-5 mt-1 columns-2">
+                      <li v-for="header in validationResults.patients.required_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
                 </div>
 
-                <div v-if="validationResults.patients.extra_headers" class="mt-3">
-                  <p class="font-medium text-sm">Extra Headers:</p>
-                  <ul class="list-disc pl-5 mt-1">
-                    <li v-for="header in validationResults.patients.extra_headers" :key="header" class="text-sm">
-                      {{ header }}
-                    </li>
-                  </ul>
-                </div>
+                <!-- Success/Warning State -->
+                <template v-else>
+                  <div class="flex items-center gap-2 mb-3">
+                    <i v-if="patientValidationStatus === 'warning'"
+                      class="fas fa-exclamation-triangle text-yellow-500"></i>
+                    <i v-else class="fas fa-check-circle text-green-500"></i>
+                    <p class="font-medium">{{ validationResults.patients.message || 'Validation complete' }}</p>
+                  </div>
 
-                <div v-if="validationResults.patients.required_headers" class="mt-3">
-                  <p class="font-medium text-sm">Required Headers:</p>
-                  <ul class="list-disc pl-5 mt-1 columns-2">
-                    <li v-for="header in validationResults.patients.required_headers" :key="header" class="text-sm">
-                      {{ header }}
-                    </li>
-                  </ul>
-                </div>
+                  <!-- Issues Display -->
+                  <div v-if="validationResults.patients.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
+                    <p class="font-medium mb-2">Data Quality Issues:</p>
+                    <div v-for="(issue, index) in validationResults.patients.issues" :key="index" class="mb-2">
+                      <p class="font-medium">{{ issue.message }}</p>
+                      <p class="text-xs">Found in {{ issue.count }} records</p>
+
+                      <!-- Example Rows -->
+                      <div v-if="issue.example_rows" class="mt-1">
+                        <p class="text-xs font-medium">Example rows:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="(row, idx) in issue.example_rows" :key="idx"
+                            class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
+                            {{ row }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Example Values -->
+                      <div v-if="issue.examples" class="mt-1">
+                        <p class="text-xs font-medium">Example values:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="(ex, idx) in issue.examples" :key="idx"
+                            class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
+                            Row {{ ex.row }}: {{ ex.value }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- File Stats -->
+                  <div class="mt-3 text-sm grid grid-cols-2 gap-2">
+                    <div>
+                      <p class="font-medium text-gray-600">File Name:</p>
+                      <p class="truncate">{{ validationResults.patients.file_name }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">File Size:</p>
+                      <p>{{ formatFileSize(validationResults.patients.file_size) }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Records:</p>
+                      <p>{{ validationResults.patients.record_count }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Unique IDs:</p>
+                      <p>{{ validationResults.patients.unique_patient_numbers }}</p>
+                    </div>
+                  </div>
+
+                  <!-- Data Sample Preview -->
+                  <div v-if="validationResults.patients.data_sample" class="mt-4">
+                    <p class="font-medium text-sm mb-2">Data Sample:</p>
+                    <div class="overflow-x-auto max-h-40 overflow-y-auto border rounded">
+                      <table class="min-w-full text-xs">
+                        <thead class="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th v-for="(header, idx) in validationResults.patients.headers" :key="idx"
+                              class="px-2 py-1 text-left font-medium">
+                              {{ header }}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(row, rowIdx) in validationResults.patients.data_sample" :key="rowIdx">
+                            <td v-for="(value, colIdx) in row" :key="colIdx" class="px-2 py-1 border-t">
+                              {{ formatSampleValue(value) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </template>
               </div>
 
-              <!-- Success/Warning State -->
-              <template v-else>
-                <div class="flex items-center gap-2 mb-3">
-                  <i v-if="patientValidationStatus === 'warning'"
-                    class="fas fa-exclamation-triangle text-yellow-500"></i>
-                  <i v-else class="fas fa-check-circle text-green-500"></i>
-                  <p class="font-medium">{{ validationResults.patients.message || 'Validation complete' }}</p>
-                </div>
-
-                <!-- Issues Display -->
-                <div v-if="validationResults.patients.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
-                  <p class="font-medium mb-2">Data Quality Issues:</p>
-                  <div v-for="(issue, index) in validationResults.patients.issues" :key="index" class="mb-2">
-                    <p class="font-medium">{{ issue.message }}</p>
-                    <p class="text-xs">Found in {{ issue.count }} records</p>
-
-                    <!-- Example Rows -->
-                    <div v-if="issue.example_rows" class="mt-1">
-                      <p class="text-xs font-medium">Example rows:</p>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <span v-for="(row, idx) in issue.example_rows" :key="idx"
-                          class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
-                          {{ row }}
-                        </span>
-                      </div>
-                    </div>
-
-                    <!-- Example Values -->
-                    <div v-if="issue.examples" class="mt-1">
-                      <p class="text-xs font-medium">Example values:</p>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <span v-for="(ex, idx) in issue.examples" :key="idx"
-                          class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
-                          Row {{ ex.row }}: {{ ex.value }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- File Stats -->
-                <div class="mt-3 text-sm grid grid-cols-2 gap-2">
-                  <div>
-                    <p class="font-medium text-gray-600">File Name:</p>
-                    <p class="truncate">{{ validationResults.patients.file_name }}</p>
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-600">File Size:</p>
-                    <p>{{ formatFileSize(validationResults.patients.file_size) }}</p>
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-600">Records:</p>
-                    <p>{{ validationResults.patients.record_count }}</p>
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-600">Unique IDs:</p>
-                    <p>{{ validationResults.patients.unique_patient_numbers }}</p>
-                  </div>
-                </div>
-
-                <!-- Data Sample Preview -->
-                <div v-if="validationResults.patients.data_sample" class="mt-4">
-                  <p class="font-medium text-sm mb-2">Data Sample:</p>
-                  <div class="overflow-x-auto max-h-40 overflow-y-auto border rounded">
-                    <table class="min-w-full text-xs">
-                      <thead class="bg-gray-100 sticky top-0">
-                        <tr>
-                          <th v-for="(header, idx) in validationResults.patients.headers" :key="idx"
-                            class="px-2 py-1 text-left font-medium">
-                            {{ header }}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(row, rowIdx) in validationResults.patients.data_sample" :key="rowIdx">
-                          <td v-for="(value, colIdx) in row" :key="colIdx" class="px-2 py-1 border-t">
-                            {{ formatSampleValue(value) }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </template>
+              <div v-else class="text-gray-500 italic">
+                No validation performed yet
+              </div>
             </div>
 
-            <div v-else class="text-gray-500 italic">
-              No validation performed yet
-            </div>
+
           </Card>
 
           <!-- Visits Validation Results -->
@@ -546,43 +567,146 @@ const crossValidationStatus = computed(() => {
             'border-yellow-500': visitsValidationStatus === 'warning',
             'border-red-500': visitsValidationStatus === 'error'
           }">
-              <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <i class="fas fa-notes-medical text-green-500"></i>
+
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <i class="fas fa-calendar-days text-green-500"></i>
               Visits Validation
             </h3>
-            
-            <div v-if="validationResults.visits">
-              <div v-if="validationResults.visits.error" class="text-red-600 bg-red-50 p-3 rounded">
-                <i class="fas fa-exclamation-circle mr-2"></i>
-                {{ validationResults.visits.error }}
+
+
+            <div v-if="uploading.visits" class="gear-container">
+              <i class="fas fa-cog text-green-400 gear-large"></i>
+              <i class="fas fa-cog text-green-600 gear-medium"></i>
+            </div>
+            <div v-else>
+
+              <div v-if="validationResults.visits">
+                <!-- Error State -->
+                <div v-if="visitsValidationStatus === 'error'" class="text-red-600 bg-red-50 p-3 rounded">
+                  <i class="fas fa-exclamation-circle mr-2"></i>
+                  {{ validationResults.visits.message || 'Validation error' }}
+
+                  <!-- Header Mismatch Details -->
+                  <div v-if="validationResults.visits.missing_headers" class="mt-3">
+                    <p class="font-medium text-sm">Missing Headers:</p>
+                    <ul class="list-disc pl-5 mt-1">
+                      <li v-for="header in validationResults.visits.missing_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div v-if="validationResults.visits.extra_headers" class="mt-3">
+                    <p class="font-medium text-sm">Extra Headers:</p>
+                    <ul class="list-disc pl-5 mt-1">
+                      <li v-for="header in validationResults.visits.extra_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div v-if="validationResults.visits.required_headers" class="mt-3">
+                    <p class="font-medium text-sm">Required Headers:</p>
+                    <ul class="list-disc pl-5 mt-1 columns-2">
+                      <li v-for="header in validationResults.visits.required_headers" :key="header" class="text-sm">
+                        {{ header }}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Success/Warning State -->
+                <template v-else>
+                  <div class="flex items-center gap-2 mb-3">
+                    <i v-if="visitsValidationStatus === 'warning'"
+                      class="fas fa-exclamation-triangle text-yellow-500"></i>
+                    <i v-else class="fas fa-check-circle text-green-500"></i>
+                    <p class="font-medium">{{ validationResults.visits.message || 'Validation complete' }}</p>
+                  </div>
+
+                  <!-- Issues Display -->
+                  <div v-if="validationResults.visits.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
+                    <p class="font-medium mb-2">Data Quality Issues:</p>
+                    <div v-for="(issue, index) in validationResults.visits.issues" :key="index" class="mb-2">
+                      <p class="font-medium">{{ issue.message }}</p>
+                      <p class="text-xs">Found in {{ issue.count }} records</p>
+
+                      <!-- Example Rows -->
+                      <div v-if="issue.example_rows" class="mt-1">
+                        <p class="text-xs font-medium">Example rows:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="(row, idx) in issue.example_rows" :key="idx"
+                            class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
+                            {{ row }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Example Values -->
+                      <div v-if="issue.examples" class="mt-1">
+                        <p class="text-xs font-medium">Example values:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="(ex, idx) in issue.examples" :key="idx"
+                            class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
+                            Row {{ ex.row }}: {{ ex.value }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- File Stats -->
+                  <div class="mt-3 text-sm grid grid-cols-2 gap-2">
+                    <div>
+                      <p class="font-medium text-gray-600">File Name:</p>
+                      <p class="truncate">{{ validationResults.visits.file_name }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">File Size:</p>
+                      <p>{{ formatFileSize(validationResults.visits.file_size) }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Records:</p>
+                      <p>{{ validationResults.visits.record_count }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Unique IDs:</p>
+                      <p>{{ validationResults.visits.unique_patient_numbers }}</p>
+                    </div>
+                  </div>
+
+                  <!-- Data Sample Preview -->
+                  <div v-if="validationResults.visits.data_sample" class="mt-4">
+                    <p class="font-medium text-sm mb-2">Data Sample:</p>
+                    <div class="overflow-x-auto max-h-40 overflow-y-auto border rounded">
+                      <table class="min-w-full text-xs">
+                        <thead class="bg-gray-100 sticky top-0">
+                          <tr>
+                            <th v-for="(header, idx) in validationResults.visits.headers" :key="idx"
+                              class="px-2 py-1 text-left font-medium">
+                              {{ header }}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(row, rowIdx) in validationResults.visits.data_sample" :key="rowIdx">
+                            <td v-for="(value, colIdx) in row" :key="colIdx" class="px-2 py-1 border-t">
+                              {{ formatSampleValue(value) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </template>
               </div>
-              
-              <template v-else>
-                <div class="flex items-center gap-2 mb-3">
-                  <i v-if="validationResults.visits.issues?.length" class="fas fa-exclamation-triangle text-yellow-500"></i>
-                  <i v-else class="fas fa-check-circle text-green-500"></i>
-                  <p class="font-medium">{{ validationResults.visits.message || 'Validation complete' }}</p>
-                </div>
-                
-                <div v-if="validationResults.visits.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
-                  <p class="font-medium mb-2">Issues found:</p>
-                  <ul class="list-disc pl-5 space-y-1">
-                    <li v-for="(issue, index) in validationResults.visits.issues" :key="index">
-                      {{ issue }}
-                    </li>
-                  </ul>
-                </div>
-                
-                <div class="mt-3 text-sm">
-                  <p><span class="font-medium">Records:</span> {{ validationResults.visits.recordCount || 'N/A' }}</p>
-                  <p><span class="font-medium">Unique IDs:</span> {{ validationResults.visits.uniquePatientNumbers || 'N/A' }}</p>
-                </div>
-              </template>
+
+              <div v-else class="text-gray-500 italic">
+                No validation performed yet
+              </div>
             </div>
-            
-            <div v-else class="text-gray-500 italic">
-              No validation performed yet
-            </div>
+
+
           </Card>
 
           <!-- Cross Validation Results -->
@@ -597,65 +721,70 @@ const crossValidationStatus = computed(() => {
               Cross-File Validation
             </h3>
 
-            <div v-if="validationResults.crossValidation">
-              <div v-if="crossValidationStatus === 'error'" class="text-red-600 bg-red-50 p-3 rounded">
-                <i class="fas fa-exclamation-circle mr-2"></i>
-                {{ validationResults.crossValidation.error || validationResults.crossValidation.message || 'Validation error'
-                }}
-              </div>
+            <div v-if="validating" class="gear-container">
+              <i class="fas fa-cog text-purple-400 gear-large"></i>
+              <i class="fas fa-cog text-purple-600 gear-medium"></i>
+              <p class="absolute bottom-0 text-gray-600 font-medium">Validating...</p>
+            </div>
 
-              <template v-else>
-                <div class="flex items-center gap-2 mb-3">
-                  <i v-if="crossValidationStatus === 'warning'" class="fas fa-exclamation-triangle text-yellow-500"></i>
-                  <i v-else class="fas fa-check-circle text-green-500"></i>
-                  <p class="font-medium">{{ validationResults.crossValidation.message || 'Validation complete' }}</p>
-                </div>
+            <div v-else>
+              <div v-if="validationResults.crossValidation">
+                <template v-if="crossValidationStatus !== 'error'">
+                  <div class="flex items-center gap-2 mb-3">
+                    <i v-if="crossValidationStatus === 'warning'"
+                      class="fas fa-exclamation-triangle text-yellow-500"></i>
+                    <i v-else class="fas fa-check-circle text-green-500"></i>
+                    <p class="font-medium">{{ validationResults.crossValidation.message }}</p>
+                  </div>
 
-                <!-- Issues Display -->
-                <div v-if="validationResults.crossValidation.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
-                  <p class="font-medium mb-2">Consistency Issues:</p>
-                  <div v-for="(issue, index) in validationResults.crossValidation.issues" :key="index" class="mb-2">
-                    <p class="font-medium">{{ issue.message }}</p>
-                    <p class="text-xs">Count: {{ issue.count }}</p>
+                  <!-- Issues Display -->
+                  <div v-if="validationResults.crossValidation.issues?.length" class="bg-yellow-50 p-3 rounded text-sm">
+                    <p class="font-medium mb-2">Consistency Issues:</p>
+                    <div v-for="(issue, index) in validationResults.crossValidation.issues" :key="index" class="mb-2">
+                      <p class="font-medium">{{ issue.message }}</p>
+                      <p class="text-xs">Count: {{ issue.count }}</p>
 
-                    <!-- Example PatientNumbers -->
-                    <div v-if="issue.examples" class="mt-1">
-                      <p class="text-xs font-medium">Examples:</p>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <span v-for="(ex, idx) in issue.examples" :key="idx"
-                          class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
-                          {{ ex }}
-                        </span>
+                      <!-- Example PatientNumbers -->
+                      <div v-if="issue.examples" class="mt-1">
+                        <p class="text-xs font-medium">Examples:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="(ex, idx) in issue.examples" :key="idx"
+                            class="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">
+                            {{ ex }}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- Stats -->
-                <div class="mt-3 text-sm grid grid-cols-2 gap-2">
-                  <div>
-                    <p class="font-medium text-gray-600">Orphaned Visits:</p>
-                    <p>{{ validationResults.crossValidation.orphaned_visits_count || 0 }}</p>
+                  <!-- Stats -->
+                  <div class="mt-3 text-sm grid grid-cols-2 gap-2">
+                    <div>
+                      <p class="font-medium text-gray-600">Orphaned Visits:</p>
+                      <p>{{ validationResults.crossValidation.orphaned_visits_count || 0 }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Patients w/o Visits:</p>
+                      <p>{{ validationResults.crossValidation.patients_without_visits_count || 0 }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Total Patients:</p>
+                      <p>{{ validationResults.crossValidation.stats?.total_patients || 'N/A' }}</p>
+                    </div>
+                    <div>
+                      <p class="font-medium text-gray-600">Total Visits:</p>
+                      <p>{{ validationResults.crossValidation.stats?.total_visits || 'N/A' }}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p class="font-medium text-gray-600">Patients w/o Visits:</p>
-                    <p>{{ validationResults.crossValidation.patients_without_visits_count || 0 }}</p>
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-600">Total Patients:</p>
-                    <p>{{ validationResults.crossValidation.stats?.total_patients || 'N/A' }}</p>
-                  </div>
-                  <div>
-                    <p class="font-medium text-gray-600">Total Visits:</p>
-                    <p>{{ validationResults.crossValidation.stats?.total_visits || 'N/A' }}</p>
-                  </div>
-                </div>
-              </template>
+                </template>
+              </div>
+
+              <div v-else class="text-gray-500 italic">
+                No cross-validation performed yet
+              </div>
             </div>
 
-            <div v-else class="text-gray-500 italic">
-              No cross-validation performed yet
-            </div>
+
           </Card>
         </div>
 
@@ -698,6 +827,52 @@ input[type='file'] {
 
   50% {
     opacity: 0.5;
+  }
+}
+
+/* New gear animations */
+.gear-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 150px;
+  /* Adjust as needed */
+  position: relative;
+}
+
+.gear-large {
+  font-size: 5rem;
+  /* Large size */
+  animation: spin 4s linear infinite;
+  position: absolute;
+}
+
+.gear-medium {
+  font-size: 3.5rem;
+  /* Medium size */
+  animation: spin-reverse 3s linear infinite;
+  position: absolute;
+  margin-left: 45px;
+  margin-top: 30px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(-360deg);
   }
 }
 
