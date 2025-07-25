@@ -9,6 +9,26 @@ class InitialVisit extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'patient_id',
+        'first_positive_hiv',
+        'who_stage',
+        'diagnosis_1',
+        'diagnosis_2',
+        'diagnosis_3',
+        'diagnosis_4',
+        'art_pre_exposure_id',
+        'previous_tb_tt',
+        'art_start_place_id',
+        'art_start_date',
+        'cd4_baseline',
+    ];
+
     //
     public function patient()
     {

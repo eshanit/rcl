@@ -48,11 +48,17 @@ class UploadAndValidateDataController extends Controller
 
         $result = $this->validateFile($request, 'patients_file', $this->patientHeaders, 'patients');
 
+        $file = $request->file('patients_file');
+        $filePath = $file->store('temp-uploads');
+
+        // Store absolute path in session
+        session(['patients_file_path' => storage_path('app/public/'.$filePath)]);
         session()->forget('cross_validation');
         // Store in session
         session(['patients_validation' => $result]);
 
         return $result;
+
     }
 
     /**
@@ -68,6 +74,12 @@ class UploadAndValidateDataController extends Controller
         }
 
         $result = $this->validateFile($request, 'visits_file', $this->visitsHeaders, 'visits');
+
+        $file = $request->file('visits_file');
+        $filePath = $file->store('temp-uploads');
+
+        // Store absolute path in session
+        session(['visits_file_path' => storage_path('app/public/'.$filePath)]);
 
         session()->forget('cross_validation');
         // Store in session
@@ -146,7 +158,7 @@ class UploadAndValidateDataController extends Controller
             // Store in session
             session(['cross_validation' => $response]);
 
-              return Inertia::render('uploads/PatientData', [
+            return Inertia::render('uploads/PatientData', [
                 'validationResult' => $response,
             ]);
 
@@ -166,7 +178,8 @@ class UploadAndValidateDataController extends Controller
     {
         try {
             // Get first row only for headers
-            $actualHeaders = array_keys((new FastExcel)->import($filePath)->first() ?: []);
+            $normalizedPath = str_replace('\\', '/', $filePath);
+            $actualHeaders = array_keys((new FastExcel)->import($normalizedPath)->first() ?: []);
 
             // Normalize headers
             $normalize = function ($header) {
@@ -405,7 +418,9 @@ class UploadAndValidateDataController extends Controller
 
         // Use LazyCollection for memory-efficient processing
         LazyCollection::make(function () use ($filePath) {
-            return (new FastExcel)->import($filePath);
+            $normalizedPath = str_replace('\\', '/', $filePath);
+
+            return (new FastExcel)->import($normalizedPath);
         })->each(function ($row) use ($fileType, &$issues, &$patientNumbers, &$sampleRows, &$recordCount, $startTime) {
             $recordCount++;
             $rowNumber = $recordCount + 1; // +1 for header row

@@ -11,7 +11,25 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Patient extends Model
 {
     use HasFactory;
+
     //
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'p_number',
+        'np_number',
+        'date_of_birth',
+        'gender',
+        'height',
+        'site_id',
+    ];
+
+    protected $casts = [
+        'date_of_birth' => 'date',
+    ];
 
     public function site(): BelongsTo
     {

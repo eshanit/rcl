@@ -24,6 +24,14 @@ class DatabaseSeeder extends Seeder
             ArtPreExposureSeeder::class,
             ArtStartPlaceSeeder::class,
             StatusSeeder::class,
+            VisitTypeSeeder::class,
+            TransferTypeSeeder::class,
+            MedicationSeeder::class,
+            ArvSwitchReasonSeeder::class,
+            TbStatusSeeder::class,
+            SideEffectSeeder::class,
+            KaposiStatusSeeder::class,
+            MedicationStatus::class,
         ]);
     }
 }

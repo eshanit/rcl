@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class VisitMedication extends Model
 {
     //
-    protected $fillable = ['status'];
+    protected $fillable = [
+        'visit_id',
+        'medication_status_id',
+        'medication_id',
+    ];
 
     public function visit(): BelongsTo
     {

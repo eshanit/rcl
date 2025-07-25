@@ -4,8 +4,6 @@ import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { Card } from '@/components/ui/card';
 
-
-
 const breadcrumbs = [
   { title: 'Dashboard', href: '/dashboard' },
   { title: 'Data Upload', href: '/upload' },
@@ -212,22 +210,11 @@ const crossValidationStatus = computed(() => {
   return 'success';
 });
 
-// Helper to format issue messages
-// function formatIssueMessage(issue: any): string {
-//   if (issue.type === 'header_mismatch') {
-//     return `Header mismatch: ${issue.message}`;
-//   }
-//   if (issue.type === 'blank_patient_number') {
-//     return `Blank PatientNumber found in ${issue.count} rows`;
-//   }
-//   if (issue.type === 'invalid_date_format') {
-//     return `Invalid date format in ${issue.field}: ${issue.count} issues`;
-//   }
-//   if (issue.type === 'non_numeric_value') {
-//     return `Non-numeric values in ${issue.field}: ${issue.count} issues`;
-//   }
-//   return issue.message || 'Data quality issue';
-// }
+const importing = ref(false);
+
+async function importData() {
+  router.post('/import-data')
+}
 </script>
 
 <template>
@@ -253,7 +240,7 @@ const crossValidationStatus = computed(() => {
         </div>
       </div>
       <!-- <pre>
-  {{validationResults.visits  }}
+  {{validationResults  }}
 </pre> -->
       <!-- File Upload Section -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -790,12 +777,17 @@ const crossValidationStatus = computed(() => {
 
         <!-- Final Action Buttons -->
         <div v-if="validationResults.crossValidation" class="flex justify-end gap-3 mt-8">
-          <button class="bg-gray-600 text-white px-6 py-3 rounded-md shadow hover:bg-gray-700 transition">
+          <button class="bg-gray-600 text-white px-6 py-3 rounded-md shadow hover:bg-gray-700 transition"
+            @click="patientsFile = null; visitsFile = null; validationResults = {}">
             <i class="fas fa-redo mr-2"></i> Re-upload Files
           </button>
+
           <button
-            class="bg-indigo-600 text-white px-6 py-3 rounded-md shadow hover:bg-indigo-700 transition flex items-center">
-            <i class="fas fa-database mr-2"></i> Import to Database
+            class="bg-indigo-600 text-white px-6 py-3 rounded-md shadow hover:bg-indigo-700 transition flex items-center disabled:opacity-50"
+            :disabled="importing" @click="importData">
+            <i v-if="importing" class="fas fa-spinner fa-spin mr-2"></i>
+            <i v-else class="fas fa-database mr-2"></i>
+            {{ importing ? 'Importing...' : 'Import to Database' }}
           </button>
         </div>
       </div>

@@ -21,10 +21,10 @@ return new class extends Migration
             $table->foreignIdFor(Facility::class)->constrained()->cascadeOnDelete();
             $table->integer('instance');
             $table->foreignIdFor(VisitType::class)->constrained()->cascadeOnDelete();
-            $table->date('app_visit_date');
-            $table->date('actual_visit_date');
-            $table->date('next_visit_date');
-            $table->boolean('transfer_smart');
+            $table->date('app_visit_date')->nullable();
+            $table->date('actual_visit_date')->nullable();
+            $table->date('next_visit_date')->nullable();
+            $table->boolean('transfer_smart')->nullable();
             $table->foreignIdFor(TransferType::class)->nullable()->constrained()->nullOnDelete();
             $table->timestamps();
         });

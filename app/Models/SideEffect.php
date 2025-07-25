@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SideEffect extends Model
 {
     //
-    //
     use HasFactory;
 
     public function VisitDetails(): HasMany

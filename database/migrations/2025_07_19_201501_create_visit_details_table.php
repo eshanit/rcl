@@ -2,6 +2,7 @@
 
 use App\Enums\GeneralType;
 use App\models\ArvSwitchReason;
+use App\Models\KaposiStatus;
 use App\Models\SideEffect;
 use App\Models\TbStatus;
 use App\Models\Visit;
@@ -33,6 +34,7 @@ return new class extends Migration
             $table->string('arv2_name')->nullable();
             $table->foreignIdFor(ArvSwitchReason::class)->nullable()->constrained()->cascadeOnDelete()->nullOnDelete();
             $table->foreignIdFor(TBStatus::class)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(KaposiStatus::class)->constrained()->cascadeOnDelete();
             $table->foreignId('diagnosis_1')->nullable()->constrained('diagnosis_types')->nullOnDelete();
             $table->foreignId('diagnosis_2')->nullable()->constrained('diagnosis_types')->nullOnDelete();
             $table->integer('new_who_stage')->unsigned()->nullable()->check('who_stage >= 1 AND who_stage <= 4');

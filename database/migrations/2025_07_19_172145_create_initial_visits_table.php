@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('initial_visits', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(Patient::class)->constrained()->cascadeOnDelete();
-            $table->date('first_positive_hiv')->nullable();
+            $table->string('first_positive_hiv')->nullable();
             $table->integer('who_stage')->unsigned()->nullable()->check('who_stage >= 1 AND who_stage <= 4');
             $table->foreignId('diagnosis_1')->nullable()->constrained('diagnosis_types')->nullOnDelete();
             $table->foreignId('diagnosis_2')->nullable()->constrained('diagnosis_types')->nullOnDelete();
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignIdFor(ArtPreExposure::class)->constrained()->cascadeOnDelete();
             $table->enum('previous_tb_tt', array_map(fn ($type) => $type->value, GeneralType::cases()))->default(GeneralType::NA->value);
             $table->foreignIdFor(ArtStartPlace::class)->constrained()->cascadeOnDelete();
-            $table->date('art_start_date');
+            $table->date('art_start_date')->nullable();
             $table->string('cd4_baseline')->nullable();
             $table->timestamps();
         });

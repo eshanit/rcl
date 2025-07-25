@@ -14,9 +14,12 @@ class ShowDataUploadFormController extends Controller
     {
         //
         return Inertia::render('uploads/PatientData', [
-            'patients_validation' => session('patients_validation'),
-            'visits_validation' => session('visits_validation'),
-            'cross_validation' => session('cross_validation'),
+            // ,
+            'validationResult' => [
+                'patients_validation' => session('patients_validation'),
+                'visits_validation' => session('visits_validation'),
+                'cross_validation' => session('cross_validation'),
+            ],
         ]);
     }
 }

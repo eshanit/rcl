@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('patients', function (Blueprint $table) {
             $table->id();
             $table->string('p_number')->unique();
-            $table->string('np_number')->unique()->nullable();
+            $table->string('np_number')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->enum('gender', array_map(fn ($gender) => $gender->value, GenderType::cases()))->default(GenderType::UNKNOWN->value);
             $table->integer('height')->unsigned()->nullable()->check('height >= 0 AND height <= 250');

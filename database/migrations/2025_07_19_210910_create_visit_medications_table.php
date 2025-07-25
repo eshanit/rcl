@@ -1,7 +1,7 @@
 <?php
 
-use App\Enums\MedicationStatusType;
 use App\Models\Medication;
+use App\Models\MedicationStatus;
 use App\Models\Visit;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,7 +17,7 @@ return new class extends Migration
         Schema::create('visit_medications', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(Visit::class)->constrained()->cascadeOnDelete();
-            $table->enum('status', array_map(fn ($type) => $type->value, MedicationStatusType::cases()))->nullable()->default(MedicationStatusType::NOT_APPLICABLE->value);
+            $table->foreignIdFor(MedicationStatus::class)->constrained()->cascadeOnDelete();
             $table->foreignIdFor(Medication::class)->constrained()->cascadeOnDelete();
             $table->unique(['visit_id', 'medication_id']);
         });

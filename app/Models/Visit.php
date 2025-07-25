@@ -12,6 +12,28 @@ class Visit extends Model
     //
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'patient_id',
+        'facility_id',
+        'instance',
+        'visit_type_id',
+        'app_visit_date',
+        'actual_visit_date',
+        'next_visit_date',
+        'transfer_type_id',
+    ];
+
+    // protected $casts = [
+    //     'app_visit_date' => 'date',
+    //     'actual_visit_date' => 'date',
+    //     'next_visit_date' => 'date',
+    // ];
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);

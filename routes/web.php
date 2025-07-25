@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Upload\ImportDataController;
 use App\Http\Controllers\Upload\ShowDataUploadFormController;
 use App\Http\Controllers\Upload\UploadAndValidateDataController;
 use App\Http\Controllers\Upload\UploadFormGetController;
@@ -29,15 +30,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/upload/validate', [UploadAndValidateDataController::class, 'validateFiles'])
         ->name('upload.validate');
 
-   /**
-    * This is to cater for page refreshes
-    */
+    Route::post('/import-data', [ImportDataController::class, 'import'])
+        ->name('import.data');
 
+    /**
+     * This is to cater for page refreshes
+     */
     Route::get('/upload/patients', UploadFormGetController::class);
 
-     Route::get('/upload/visits', UploadFormGetController::class);
+    Route::get('/upload/visits', UploadFormGetController::class);
 
-     Route::get('/upload/validate', UploadFormGetController::class);
+    Route::get('/upload/validate', UploadFormGetController::class);
 
 });
 
