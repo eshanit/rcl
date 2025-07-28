@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, usePage, router, usePoll } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, watch, watchEffect } from 'vue';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import Label from '@/components/ui/label/Label.vue';
 import Input from '@/components/ui/input/Input.vue';
 import Progress from '@/components/ui/progress/Progress.vue';
 import Button from '@/components/ui/button/Button.vue';
 import Separator from '@/components/ui/separator/Separator.vue';
 import Stepper from '@/components/ui/stepper/Stepper.vue';
-
-
 const breadcrumbs = [
   { title: 'Dashboard', href: '/dashboard' },
   { title: 'Data Upload', href: '/upload' },
@@ -220,9 +217,9 @@ const crossValidationStatus = computed(() => {
 
 const importing = ref(false);
 
-// async function importData() {
-//   router.post('/import-data')
-// }
+async function importData() {
+  router.post('/import-data')
+}
 
 // Stepper state
 const steps = ref([
@@ -265,85 +262,6 @@ watch(visitsFile, () => {
     validationResults.value.crossValidation = null;
   }
 });
-
-// new 
-// Import progress tracking
-const page = usePage();
-const importStatus = ref<'idle' | 'importing' | 'success' | 'error'>('idle');
-const importStats = ref<any>(null);
-const importError = ref<string | null>(null);
-
-// Progress polling
-const importModalOpen = ref(false);
-const importProgress = ref();
-const importPolling = ref();
-const importComplete = ref(false);
-
-
-
-// Start polling when import begins
-watch(importStatus, (newStatus) => {
-  if (newStatus === 'importing') {
-    usePoll(2000, {
-          only: ['importProgress'],
-         // preserveState: true,
-          //preserveScroll: true,
-    });
-  }
-});
-
-// Add progress polling function
-const startImportProgressPolling = () => {
-
-  importPolling.value = setInterval(async () => {
-    try {
-       router.get('/import/progress',{},{
-        onSuccess: (response) => {
-          importProgress.value = response.props.stats || {};
-        }
-      });
-      
-      
-      // Check if import is complete
-      if (importProgress.value.patients.processed >= importProgress.value.patients.total &&
-          importProgress.value.visits.processed >= importProgress.value.visits.total) {
-        clearInterval(importPolling.value);
-        importComplete.value = true;
-      }
-    } catch (e) {
-      console.error('Error fetching progress', e);
-    }
-  }, 2000);
-}
-
-
-async function importData() {
-  importing.value = true;
-  importStatus.value = 'importing';
-  importError.value = null;
-  importStats.value = null;
-  
-  router.post('/import-data', {}, {
-    onSuccess: (response) => {
-      importStatus.value = 'success';
-      importStats.value = response.props.stats || {};
-      
-      // Reset files and validation after successful import
-      patientsFile.value = null;
-      visitsFile.value = null;
-      validationResults.value = {};
-    },
-    onError: (errors) => {
-      importStatus.value = 'error';
-      importError.value = errors.message || 'Import failed';
-    },
-    onFinish: () => {
-      importing.value = false;
-    }
-  });
-}
-
-
 </script>
 
 <template>
@@ -940,90 +858,44 @@ async function importData() {
 
 
     <!-- Final Action Buttons -->
-    <div v-if="validationResults.crossValidation" class="mt-6">
-    <Separator class="my-8" />
-    
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-        <span class="text-indigo-800 font-bold">4</span>
-      </div>
-      <h2 class="text-xl font-bold text-gray-800">Import Data to Database</h2>
-    </div>
-
-    <Card class="p-6 bg-gradient-to-br from-indigo-50 to-white">
-      <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-        <div class="flex-1">
-          <h3 class="text-lg font-semibold text-gray-800">Ready to Import</h3>
-          <p class="text-gray-600 mt-1">
-            All validations completed successfully. You can now import the data into the database.
-          </p>
-          
-          <!-- Progress Display -->
-          <div v-if="importStatus === 'importing'" class="mt-4 space-y-4">
-            <div>
-              <p class="text-sm text-gray-600 mb-1">
-                Patients: {{ importProgress.patients.processed }} / {{ importProgress.patients.total }}
-              </p>
-              <Progress :value="(importProgress.patients.processed / importProgress.patients.total) * 100" />
-            </div>
-            <div>
-              <p class="text-sm text-gray-600 mb-1">
-                Visits: {{ importProgress.visits.processed }} / {{ importProgress.visits.total }}
-              </p>
-              <Progress :value="(importProgress.visits.processed / importProgress.visits.total) * 100" />
-            </div>
+    <!-- Step 4: Import (appears after cross validation) -->
+      <div v-if="validationResults.crossValidation" class="mt-6">
+        <Separator class="my-8" />
+        
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+            <span class="text-indigo-800 font-bold">4</span>
           </div>
-          
-          <!-- Success Message -->
-          <div v-if="importStatus === 'success'" class="mt-4 bg-green-50 text-green-700 p-4 rounded-lg">
-            <div class="flex items-center gap-2">
-              <i class="fas fa-check-circle text-green-500"></i>
-              <p class="font-medium">Import completed successfully!</p>
+          <h2 class="text-xl font-bold text-gray-800">Import Data to Database</h2>
+        </div>
+
+        <Card class="p-6 bg-gradient-to-br from-indigo-50 to-white">
+          <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-800">Ready to Import</h3>
+              <p class="text-gray-600 mt-1">
+                All validations completed successfully. You can now import the data into the database.
+              </p>
             </div>
             
-            <div v-if="importStats" class="mt-3 grid grid-cols-2 gap-3">
-              <div class="bg-white p-3 rounded shadow-sm">
-                <p class="text-sm text-gray-500">Patients Imported</p>
-                <p class="text-xl font-bold">{{ importStats.patients }}</p>
-              </div>
-              <div class="bg-white p-3 rounded shadow-sm">
-                <p class="text-sm text-gray-500">Visits Imported</p>
-                <p class="text-xl font-bold">{{ importStats.visits }}</p>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Error Message -->
-          <div v-if="importStatus === 'error'" class="mt-4 bg-red-50 text-red-700 p-4 rounded-lg">
-            <div class="flex items-center gap-2">
-              <i class="fas fa-exclamation-circle text-red-500"></i>
-              <p class="font-medium">Import failed</p>
-            </div>
-            <p v-if="importError" class="mt-2 text-sm">{{ importError }}</p>
-          </div>
-        </div>
-        
-        <div class="flex flex-col gap-3 min-w-[200px]">
-          <Button class="bg-gray-600 text-white px-6 py-3 rounded-md shadow hover:bg-gray-700 transition"
-            @click="patientsFile = null; visitsFile = null; validationResults = {}; importStatus = 'idle';">
-            <i class="fas fa-redo mr-2"></i> Re-upload Files
-          </Button>
+            <div class="flex gap-3">
+              <Button class="bg-gray-600 text-white px-6 py-3 rounded-md shadow hover:bg-gray-700 transition"
+                @click="patientsFile = null; visitsFile = null; validationResults = {}">
+                <i class="fas fa-redo mr-2"></i> Re-upload Files
+              </Button>
 
-          <Button
-            class="bg-indigo-600 text-white px-6 py-3 rounded-md shadow hover:bg-indigo-700 transition flex items-center disabled:opacity-50"
-            :disabled="importing || importStatus === 'success'" 
-            @click="importData">
-            <i v-if="importing" class="fas fa-spinner fa-spin mr-2"></i>
-            <i v-else class="fas fa-database mr-2"></i>
-            {{ importing ? 'Importing...' : 'Import to Database' }}
-          </Button>
-        </div>
+              <Button
+                class="bg-indigo-600 text-white px-6 py-3 rounded-md shadow hover:bg-indigo-700 transition flex items-center disabled:opacity-50"
+                :disabled="importing" @click="importData">
+                <i v-if="importing" class="fas fa-spinner fa-spin mr-2"></i>
+                <i v-else class="fas fa-database mr-2"></i>
+                {{ importing ? 'Importing...' : 'Import to Database' }}
+              </Button>
+            </div>
+          </div>
+        </Card>
       </div>
-    </Card>
-  </div>
-
   </AppLayout>
-
 </template>
 
 <style scoped>

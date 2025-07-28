@@ -92,6 +92,7 @@ const activities = ref([
                     </div>
                 </Card>
                 </Link>
+                <Link :href="route('reports.index')">
                 <Card class="flex flex-col items-center justify-center h-64 bg-gradient-to-br from-green-50 to-white border border-green-100 
                            transition-all duration-300 hover:shadow-lg hover:border-green-200 cursor-pointer group"
                     @click="goToReports">
@@ -106,6 +107,7 @@ const activities = ref([
                         </p>
                     </div>
                 </Card>
+                </Link>
             </div>
 
             <!-- Recent activity section -->

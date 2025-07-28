@@ -31,7 +31,7 @@ class DatabaseSeeder extends Seeder
             TbStatusSeeder::class,
             SideEffectSeeder::class,
             KaposiStatusSeeder::class,
-            MedicationStatus::class,
+            MedicationStatusSeeder::class,
         ]);
     }
 }

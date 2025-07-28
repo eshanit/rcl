@@ -27,9 +27,9 @@ class Patient extends Model
         'site_id',
     ];
 
-    protected $casts = [
-        'date_of_birth' => 'date',
-    ];
+    // protected $casts = [
+    //     'date_of_birth' => 'date:Y-m-d',
+    // ];
 
     public function site(): BelongsTo
     {

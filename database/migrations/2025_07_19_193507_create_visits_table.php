@@ -26,6 +26,7 @@ return new class extends Migration
             $table->date('next_visit_date')->nullable();
             $table->boolean('transfer_smart')->nullable();
             $table->foreignIdFor(TransferType::class)->nullable()->constrained()->nullOnDelete();
+            $table->string('batch_id')->nullable()->index();
             $table->timestamps();
         });
     }

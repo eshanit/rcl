@@ -21,6 +21,7 @@ return new class extends Migration
             $table->enum('gender', array_map(fn ($gender) => $gender->value, GenderType::cases()))->default(GenderType::UNKNOWN->value);
             $table->integer('height')->unsigned()->nullable()->check('height >= 0 AND height <= 250');
             $table->foreignIdFor(Site::class)->constrained()->cascadeOnDelete();
+            $table->string('batch_id')->nullable()->index();
             $table->timestamps();
         });
     }

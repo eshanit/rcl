@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Report\DashboardController;
+use App\Http\Controllers\Report\GroupedAnalysisController;
+use App\Http\Controllers\Report\IndicatorAnalysisController;
 use App\Http\Controllers\Upload\ImportDataController;
 use App\Http\Controllers\Upload\ShowDataUploadFormController;
 use App\Http\Controllers\Upload\UploadAndValidateDataController;
@@ -41,6 +44,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/upload/visits', UploadFormGetController::class);
 
     Route::get('/upload/validate', UploadFormGetController::class);
+
+    /**
+     *  Reports
+     */
+    Route::prefix('reports')->group(function () {
+        Route::get('indicator-analysis', [IndicatorAnalysisController::class, 'index'])->name('reports.indicators.index');
+        Route::get('indicator-analysis/{indicator}', [IndicatorAnalysisController::class, 'analyze'])->name('reports.indicators');
+        Route::get('/', DashboardController::class)->name('reports.index');
+        Route::get('/grouped', GroupedAnalysisController::class)->name('reports.grouped');
+    });
 
 });
 
