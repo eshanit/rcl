@@ -15,13 +15,9 @@ class CohortSeeder extends Seeder
         $cohorts = [
             [
                 'name' => 'Musiso',
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Silveira',
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
         ];
 

@@ -49,7 +49,6 @@ return new class extends Migration
             $table->string('tad')->nullable();
             $table->string('plaquetas')->nullable();
             $table->string('ast_got')->nullable();
-            $table->timestamps();
         });
     }
 

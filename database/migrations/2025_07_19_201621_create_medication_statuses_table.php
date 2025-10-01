@@ -15,7 +15,6 @@ return new class extends Migration
         Schema::create('medication_statuses', function (Blueprint $table) {
             $table->id();
             $table->enum('name', array_map(fn ($type) => $type->value, MedicationStatusType::cases()))->nullable()->default(MedicationStatusType::NOT_APPLICABLE->value);
-            $table->timestamps();
         });
     }
 

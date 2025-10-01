@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Visit extends Model
 {
@@ -54,9 +55,9 @@ class Visit extends Model
         return $this->belongsTo(TransferType::class);
     }
 
-    public function visitDetails(): HasMany
+    public function visitDetails(): HasOne
     {
-        return $this->hasMany(visitDetail::class);
+        return $this->hasOne(visitDetail::class);
     }
 
     public function medications(): HasMany

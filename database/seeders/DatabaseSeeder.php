@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
             DiagnosisTypeSeeder::class,
             ArtPreExposureSeeder::class,
             ArtStartPlaceSeeder::class,
-            StatusSeeder::class,
+            PatientStatusSeeder::class,
             VisitTypeSeeder::class,
             TransferTypeSeeder::class,
             MedicationSeeder::class,

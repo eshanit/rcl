@@ -46,7 +46,7 @@ class Patient extends Model
         return $this->hasOne(InitialVisit::class);
     }
 
-    public function statuses(): HasMany
+    public function patientStatuses(): HasMany
     {
         return $this->hasMany(PatientStatus::class);
     }

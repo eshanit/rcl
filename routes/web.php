@@ -1,6 +1,7 @@
 <?php
 
-use App\Http\Controllers\Report\DashboardController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Report\DashboardController as ReportDashboardController;
 use App\Http\Controllers\Report\GroupedAnalysisController;
 use App\Http\Controllers\Report\IndicatorAnalysisController;
 use App\Http\Controllers\Upload\ImportDataController;
@@ -16,9 +17,13 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::get('dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    // Route::get('dashboard', function () {
+    //     return Inertia::render('Dashboard');
+    // })->name('dashboard');
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])->name('dashboard.stats');
+Route::get('/dashboard/advanced-stats', [DashboardController::class, 'getAdvancedStats'])->name('dashboard.advanced-stats');
 
     Route::get('upload', ShowDataUploadFormController::class)
         ->name('upload.show');
@@ -51,7 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('reports')->group(function () {
         Route::get('indicator-analysis', [IndicatorAnalysisController::class, 'index'])->name('reports.indicators.index');
         Route::get('indicator-analysis/{indicator}', [IndicatorAnalysisController::class, 'analyze'])->name('reports.indicators');
-        Route::get('/', DashboardController::class)->name('reports.index');
+        Route::get('/', ReportDashboardController::class)->name('reports.index');
         Route::get('/grouped', GroupedAnalysisController::class)->name('reports.grouped');
     });
 

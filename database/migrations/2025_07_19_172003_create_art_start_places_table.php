@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::create('art_start_places', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
-            $table->string('Code')->unique();
-            $table->timestamps();
+            $table->string('code')->unique();
         });
     }
 

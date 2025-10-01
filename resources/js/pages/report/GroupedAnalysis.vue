@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { CalendarIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
+import { Card } from '@/components/ui/card';
 import StatCard from '@/components/reports/StatCard.vue';
 import ChartCard from '@/components/charts/ChartCard.vue';
 import RetentionChart from '@/components/charts/RetentionChart.vue';
@@ -75,7 +76,7 @@ const viralLoadData = computed(() => {
       values: [0, 0, 0]
     };
   }
-  
+
   return {
     labels: Object.keys(props.viralLoad.suppression_rates).map(key => `${key} Months`),
     values: Object.values(props.viralLoad.suppression_rates)
@@ -93,7 +94,8 @@ const viralLoadData = computed(() => {
         </div>
         <div class="flex items-center space-x-4 mt-4 md:mt-0">
           <div class="relative">
-            <select v-model="selectedPeriod" class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+            <select v-model="selectedPeriod"
+              class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
               <option value="12">Last 12 Months</option>
               <option value="6">Last 6 Months</option>
               <option value="3">Last 3 Months</option>
@@ -111,17 +113,12 @@ const viralLoadData = computed(() => {
       <!-- Dashboard Tabs -->
       <div class="bg-white rounded-xl shadow p-4 mb-6">
         <div class="flex space-x-6 overflow-x-auto">
-          <button 
-            v-for="tab in tabs" 
-            :key="tab.id"
-            @click="activeTab = tab.id"
-            :class="[
-              'pb-3 px-2 whitespace-nowrap',
-              activeTab === tab.id 
-                ? 'text-primary font-semibold border-b-2 border-primary' 
-                : 'text-gray-600 hover:text-primary'
-            ]"
-          >
+          <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id" :class="[
+            'pb-3 px-2 whitespace-nowrap',
+            activeTab === tab.id
+              ? 'text-primary font-semibold border-b-2 border-primary'
+              : 'text-gray-600 hover:text-primary'
+          ]">
             {{ tab.label }}
           </button>
         </div>
@@ -129,60 +126,31 @@ const viralLoadData = computed(() => {
 
       <!-- Stats Overview -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <StatCard 
-          title="Total Patients" 
-          :value="summary.total_patients.toLocaleString()"
-          icon="users"
-          color="art"
+        <StatCard title="Total Patients" :value="summary.total_patients.toLocaleString()" icon="users" color="art"
           :trend="{
             value: `${summary.active_percentage}% active`,
             direction: 'up'
-          }"
-        />
-        
-        <StatCard 
-          title="Viral Suppression" 
-          value="86%"
-          icon="vial"
-          color="viral"
-          :trend="{
-            value: '3.2% improvement',
-            direction: 'up'
-          }"
-        />
-        
-        <StatCard 
-          title="TB Screening" 
-          value="78%"
-          icon="lungs"
-          color="tb"
-          :trend="{
-            value: 'Needs improvement',
-            direction: 'down'
-          }"
-        />
-        
-        <StatCard 
-          title="Maternal Retention" 
-          value="92%"
-          icon="baby"
-          color="maternal"
-          :trend="{
-            value: '4.5% improvement',
-            direction: 'up'
-          }"
-        />
-        
-        <StatCard 
-          title="Retention (24 mo)" 
-          value="65%"
-          icon="clock"
-          color="retention"
-          :trend="{
-            value: 'Target: 75%',
-            direction: 'neutral'
-          }"
-        />
+          }" />
+
+        <StatCard title="Viral Suppression" value="86%" icon="vial" color="viral" :trend="{
+          value: '3.2% improvement',
+          direction: 'up'
+        }" />
+
+        <StatCard title="TB Screening" value="78%" icon="lungs" color="tb" :trend="{
+          value: 'Needs improvement',
+          direction: 'down'
+        }" />
+
+        <StatCard title="Maternal Retention" value="92%" icon="baby" color="maternal" :trend="{
+          value: '4.5% improvement',
+          direction: 'up'
+        }" />
+
+        <StatCard title="Retention (24 mo)" value="65%" icon="clock" color="retention" :trend="{
+          value: 'Target: 75%',
+          direction: 'neutral'
+        }" />
       </div>
 
       <!-- Main Charts -->
@@ -191,26 +159,41 @@ const viralLoadData = computed(() => {
         <ChartCard title="Retention Rates Over Time">
           <RetentionChart :data="retentionData" />
         </ChartCard>
-        
+
         <!-- Viral Suppression -->
         <ChartCard title="Viral Suppression Rates">
           <ViralLoadChart :data="viralLoadData" />
         </ChartCard>
-        
+
         <!-- Patient Demographics -->
-        <ChartCard title="Patient Demographics">
+        <ChartCard title="Patient Demographics" class="mb-8">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <h3 class="text-md font-medium text-gray-700 mb-2">Gender Distribution</h3>
               <GenderChart :data="demographics.gender_distribution" />
+
             </div>
             <div>
-              <h3 class="text-md font-medium text-gray-700 mb-2">Age at ART Initiation</h3>
-              <AgeChart :data="demographics.art_initiation_age" />
+              <h3 class="text-md font-medium text-gray-700 mb-2">Count Patients by Gender</h3>
+              <div v-for="(demog, index) in demographics.gender_distribution" :key="index"
+                class="text-sm text-gray-600 flex justify-between items-center mb-2">
+                <span class="font-semibold">
+                  {{ demog.gender }}
+                </span>
+                <span class="font-semibold">
+                  {{ demog.count }}
+                </span>
+              </div>
+
             </div>
           </div>
         </ChartCard>
-        
+
+        <ChartCard title="Patient Age Distribution">
+              <AgeChart :data="demographics.art_initiation_age" />
+        </ChartCard>
+
+
         <!-- TB Program Metrics -->
         <ChartCard title="TB Program Metrics">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,12 +211,12 @@ const viralLoadData = computed(() => {
           </div>
         </ChartCard>
       </div>
-      
+
       <!-- Cohort Performance -->
       <ChartCard title="Cohort Performance" class="mb-8">
         <CohortPerformanceTable :cohorts="cohorts" />
       </ChartCard>
-      
+
       <!-- Additional Metrics -->
       <div v-if="activeTab === 'maternal'" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <ChartCard title="Maternal Retention Rates">
@@ -243,7 +226,7 @@ const viralLoadData = computed(() => {
           <PregnancyInitiationChart :initiated="maternal.art_initiation_during_pregnancy" />
         </ChartCard>
       </div>
-      
+
       <div v-if="activeTab === 'mortality'" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <ChartCard title="Mortality Trends">
           <MortalityTrendChart :data="mortality" />
@@ -268,14 +251,43 @@ const viralLoadData = computed(() => {
   --color-retention: #0EA5E9;
 }
 
-.bg-art { background-color: var(--color-art); }
-.text-art { color: var(--color-art); }
-.bg-viral { background-color: var(--color-viral); }
-.text-viral { color: var(--color-viral); }
-.bg-tb { background-color: var(--color-tb); }
-.text-tb { color: var(--color-tb); }
-.bg-maternal { background-color: var(--color-maternal); }
-.text-maternal { color: var(--color-maternal); }
-.bg-retention { background-color: var(--color-retention); }
-.text-retention { color: var(--color-retention); }
+.bg-art {
+  background-color: var(--color-art);
+}
+
+.text-art {
+  color: var(--color-art);
+}
+
+.bg-viral {
+  background-color: var(--color-viral);
+}
+
+.text-viral {
+  color: var(--color-viral);
+}
+
+.bg-tb {
+  background-color: var(--color-tb);
+}
+
+.text-tb {
+  color: var(--color-tb);
+}
+
+.bg-maternal {
+  background-color: var(--color-maternal);
+}
+
+.text-maternal {
+  color: var(--color-maternal);
+}
+
+.bg-retention {
+  background-color: var(--color-retention);
+}
+
+.text-retention {
+  color: var(--color-retention);
+}
 </style>

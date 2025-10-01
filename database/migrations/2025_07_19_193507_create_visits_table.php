@@ -27,7 +27,6 @@ return new class extends Migration
             $table->boolean('transfer_smart')->nullable();
             $table->foreignIdFor(TransferType::class)->nullable()->constrained()->nullOnDelete();
             $table->string('batch_id')->nullable()->index();
-            $table->timestamps();
         });
     }
 

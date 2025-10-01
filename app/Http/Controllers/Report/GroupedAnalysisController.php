@@ -38,6 +38,7 @@ class GroupedAnalysisController extends Controller
     // 1. Summary statistics
     protected function getSummaryStatistics()
     {
+        $patients = Patient::get();
         $totalPatients = Patient::count();
         $activePatients = Patient::whereHas('visits', function ($query) {
             $query->where('actual_visit_date', '>=', now()->subMonths(6));
@@ -49,7 +50,7 @@ class GroupedAnalysisController extends Controller
             'active_percentage' => $totalPatients ? round(($activePatients / $totalPatients) * 100, 1) : 0,
             'avg_visits_per_patient' => $totalPatients ? round(Visit::count() / $totalPatients, 1) : 0,
             'avg_art_duration' => $this->calculateAverageArtDuration(),
-            'new_patients_last_month' => Patient::where('created_at', '>=', now()->subMonth())->count(),
+            'new_patients_last_month' => InitialVisit::where('art_start_date', '>=', now()->subMonth())->count(),
         ];
     }
 
@@ -106,15 +107,19 @@ class GroupedAnalysisController extends Controller
     protected function getTbMetrics()
     {
         $currentYear = now()->year;
-        $screenedThisYear = VisitDetail::whereYear('created_at', $currentYear)
-            ->whereNotNull('tb_status_id')
-            ->count();
+        // $screenedThisYear2 = VisitDetail::whereYear('created_at', $currentYear)
+        //     ->whereNotNull('tb_status_id')
+        //     ->count();
 
-        $totalVisitsThisYear = Visit::whereYear('created_at', $currentYear)->count();
+        $screenedThisYear = Visit::with('visitDetails', function ($query) {
+            $query->whereNotNull('tb_status_id');
+        })->count();
+
+        $totalVisitsThisYear = Visit::whereYear('actual_visit_date', $currentYear)->count();
 
         return [
             'screening_coverage' => $totalVisitsThisYear ? round(($screenedThisYear / $totalVisitsThisYear) * 100, 1) : 0,
-            'current_tb_treatment' => TbStatus::where('name', 'On Treatment')->count(),
+            'current_tb_treatment' => TbStatus::whereIn('id', [4, 5])->count(),
             'tb_status_distribution' => $this->getTbStatusDistribution(),
         ];
     }
@@ -204,16 +209,23 @@ class GroupedAnalysisController extends Controller
         $startDate = now()->subMonths($months);
         $endDate = $startDate->copy()->addMonth();
 
-        $enrolled = Patient::whereBetween('created_at', [$startDate, $endDate])->count();
+        $enrolled = InitialVisit::whereBetween('art_start_date', [$startDate, $endDate])->count();
 
         if ($enrolled === 0) {
             return 0;
         }
 
-        $active = Patient::whereBetween('created_at', [$startDate, $endDate])
-            ->whereHas('visits', function ($query) use ($months) {
-                $query->where('actual_visit_date', '>=', now()->subMonths($months));
-            })
+        // $active = InitialVisit::whereBetween('art_start_date', [$startDate, $endDate])
+        //     ->whereHas('visits', function ($query) use ($months) {
+        //         $query->where('actual_visit_date', '>=', now()->subMonths($months));
+        //     })
+        //     ->count();
+
+        $active = Patient::with('initialVisit', function ($query) use ($startDate, $endDate) {
+            return $query->whereBetween('art_start_date', [$startDate, $endDate]);
+        })->whereHas('visits', function ($query) use ($months) {
+            $query->where('actual_visit_date', '>=', now()->subMonths($months));
+        })
             ->count();
 
         return round(($active / $enrolled) * 100, 1);
@@ -294,17 +306,19 @@ class GroupedAnalysisController extends Controller
     protected function calculateMaternalRetention($months)
     {
         // Simplified calculation
-        $pregnantPatients = VisitDetail::where('pregnant', 'yes')
-            ->where('created_at', '<=', now()->subMonths($months))
-            ->distinct('visit_id')
+
+        $pregnantPatients = Visit::with('visitDetails', function ($query) {
+            $query->where('pregnant', 'Yes');
+        })
+            ->where('actual_visit_date', '<=', now()->subMonths($months))
+            ->distinct()
             ->count();
 
-        $activePregnantPatients = VisitDetail::where('pregnant', 'yes')
-            ->where('created_at', '<=', now()->subMonths($months))
-            ->whereHas('visit', function ($query) {
-                $query->where('actual_visit_date', '>=', now()->subMonths(3));
-            })
-            ->distinct('visit_id')
+        $activePregnantPatients = Visit::with('visitDetails', function ($query) {
+            $query->where('pregnant', 'Yes');
+        })
+            ->where('actual_visit_date', '<=', now()->subMonths(3))
+            ->distinct()
             ->count();
 
         return $pregnantPatients ? round(($activePregnantPatients / $pregnantPatients) * 100, 1) : 0;
@@ -314,26 +328,35 @@ class GroupedAnalysisController extends Controller
     {
         return InitialVisit::whereNotNull('art_start_date')
             ->whereHas('patient.visits.visitDetails', function ($query) {
-                $query->where('pregnant', 'yes')
-                    ->whereDate('created_at', '>=', DB::raw('art_start_date'))
-                    ->whereDate('created_at', '<=', DB::raw('DATE_ADD(art_start_date, INTERVAL 9 MONTH)'));
+                $query->where('pregnant', 'Yes')
+                    ->whereDate('actual_visit_date', '>=', DB::raw('art_start_date'))
+                    ->whereDate('actual_visit_date', '<=', DB::raw('DATE_ADD(art_start_date, INTERVAL 9 MONTH)'));
             })
             ->count();
     }
 
     protected function calculatePostpartumLoss()
     {
-        $postpartumPatients = VisitDetail::where('pregnant', 'yes')
-            ->where('created_at', '<=', now()->subMonths(12))
-            ->distinct('visit_id')
+        $postpartumPatients = Visit::with('visitDetails', function ($query) {
+            $query->where('pregnant', 'Yes');
+        })
+            ->where('actual_visit_date', '<=', now()->subMonths(12))
+            ->distinct()
             ->count();
 
-        $lostPatients = VisitDetail::where('pregnant', 'yes')
-            ->where('created_at', '<=', now()->subMonths(12))
-            ->whereDoesntHave('visit', function ($query) {
-                $query->where('actual_visit_date', '>=', now()->subMonths(12));
-            })
-            ->distinct('visit_id')
+        // $lostPatients2 = VisitDetail::where('pregnant', 'yes')
+        //     ->where('created_at', '<=', now()->subMonths(12))
+        //     ->whereDoesntHave('visit', function ($query) {
+        //         $query->where('actual_visit_date', '>=', now()->subMonths(12));
+        //     })
+        //     ->distinct('visit_id')
+        //     ->count();
+
+        $lostPatients = Visit::with('visitDetails', function ($query) {
+            $query->where('pregnant', 'Yes');
+        })
+            ->where('actual_visit_date', '>=', now()->subMonths(12))
+            ->distinct()
             ->count();
 
         return $postpartumPatients ? round(($lostPatients / $postpartumPatients) * 100, 1) : 0;

@@ -7,8 +7,11 @@ const props = defineProps({
     type: Object,
     required: true,
     default: () => ({
-      labels: ['0-14', '15-24', '25-34', '35-44', '45+'],
-      values: [18, 25, 30, 15, 12]
+      "0-14": 3003,
+      "15-24": 4582,
+      "25-34": 10478,
+      "35-44": 9969,
+      "45+": 7329
     })
   },
   color: {
@@ -21,7 +24,7 @@ const props = defineProps({
   },
   unit: {
     type: String,
-    default: '%'
+    default: 'patients'
   }
 });
 
@@ -42,13 +45,17 @@ watch(() => props.data, () => {
 function renderChart() {
   if (!chartCanvas.value) return;
   
+  // Extract labels and values from the data object
+  const labels = Object.keys(props.data);
+  const values = Object.values(props.data);
+  
   chartInstance = new Chart(chartCanvas.value, {
     type: 'bar',
     data: {
-      labels: props.data.labels,
+      labels: labels,
       datasets: [{
         label: props.title,
-        data: props.data.values,
+        data: values,
         backgroundColor: props.color,
         borderRadius: 6,
         borderWidth: 0
@@ -60,6 +67,14 @@ function renderChart() {
       plugins: {
         legend: {
           display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
+              return `${value} ${props.unit === '%' ? '%' : 'patients'}`;
+            }
+          }
         }
       },
       scales: {
@@ -70,7 +85,7 @@ function renderChart() {
           },
           ticks: {
             callback: (value) => {
-              return props.unit === '%' ? `${value}%` : value;
+              return props.unit === '%' ? `${value}%` : value.toLocaleString();
             }
           },
           title: {
@@ -92,11 +107,17 @@ function renderChart() {
   });
 }
 </script>
+
 <template>
-  <!-- <pre>
-    {{ props.data }}
-  </pre> -->
   <div class="chart-container">
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
+
+<style scoped>
+.chart-container {
+  position: relative;
+  height: 400px;
+  width: 100%;
+}
+</style>

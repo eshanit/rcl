@@ -29,7 +29,6 @@ return new class extends Migration
             $table->foreignIdFor(ArtStartPlace::class)->constrained()->cascadeOnDelete();
             $table->date('art_start_date')->nullable();
             $table->string('cd4_baseline')->nullable();
-            $table->timestamps();
         });
     }
 

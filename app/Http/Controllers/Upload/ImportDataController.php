@@ -60,7 +60,7 @@ class ImportDataController extends Controller
                 'status' => 'success',
                 'message' => 'Data imported successfully',
                 'stats' => [
-                    'patients' => count($patientIdMap),
+                    'patients' => count($patientIdMap['idMap']),
                     'visits' => $visitCount,
                 ],
             ]);
@@ -118,29 +118,32 @@ class ImportDataController extends Controller
     private function processPatientsData($filePath, $batchId)
     {
         $patientIdMap = [];
+        $patientSiteMap = []; // New map to store patient sites
         $batch = [];
         $rowCount = 0;
 
-        (new FastExcel)->import($filePath, function ($row) use (&$batch, &$patientIdMap, &$rowCount, &$batchId) {
+        (new FastExcel)->import($filePath, function ($row) use (&$batch, &$patientIdMap, &$patientSiteMap, &$rowCount, $batchId) {
             $batch[] = $row;
             $rowCount++;
 
             if (count($batch) >= $this->batchSize) {
-                $this->insertPatientBatch($batch, $patientIdMap, $batchId);
+                $this->insertPatientBatch($batch, $patientIdMap, $patientSiteMap, $batchId);
                 $batch = [];
-                gc_collect_cycles(); // Force garbage collection
+                gc_collect_cycles();
             }
         });
 
         if (! empty($batch)) {
-            $this->insertPatientBatch($batch, $patientIdMap, $batchId);
-            $this->updateProgress('patients', count($batch));
+            $this->insertPatientBatch($batch, $patientIdMap, $patientSiteMap, $batchId);
         }
 
-        return $patientIdMap;
+        return [
+            'idMap' => $patientIdMap,
+            'siteMap' => $patientSiteMap,
+        ];
     }
 
-    private function insertPatientBatch($rows, &$patientIdMap, $batchId)
+    private function insertPatientBatch($rows, &$patientIdMap, &$patientSiteMap, $batchId)
     {
         $patientsToInsert = [];
         $initialVisitsToInsert = [];
@@ -148,13 +151,30 @@ class ImportDataController extends Controller
 
         foreach ($rows as $row) {
             $patientNumber = $row['PatientNumber'];
+            $siteCode = $row['Site'] ?? '';
+            $siteName = strtolower(trim($row['Site'] ?? ''));
+
+            // Add array value check
+            $hasArray = false;
+            foreach ([$patientNumber, $row['NationalPatientNumber'] ?? null, $row['DateBorn'] ?? null, $row['Sex'] ?? null, $row['HeightAdults'] ?? null, $siteName] as $value) {
+                if (is_array($value)) {
+                    \Log::error('Array value detected in patient data: '.print_r($row, true));
+                    $hasArray = true;
+                    break;
+                }
+            }
+            if ($hasArray) {
+                continue;
+            }
+
+            // Store site code for this patient
+            $patientSiteMap[$patientNumber] = $siteCode;
 
             if (isset($patientIdMap[$patientNumber]) || isset($seenInBatch[$patientNumber])) {
                 continue;
             }
 
             $seenInBatch[$patientNumber] = true;
-            $siteName = strtolower(trim($row['Site'] ?? ''));
 
             $patientsToInsert[] = [
                 'p_number' => $patientNumber,
@@ -164,8 +184,8 @@ class ImportDataController extends Controller
                 'height' => is_numeric($row['HeightAdults']) ? (int) $row['HeightAdults'] : null,
                 'site_id' => $this->mappings['sites'][$siteName] ?? null,
                 'batch_id' => $batchId,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'patient_status_id' => $this->determinePatientStatus($row),
+                'status_date' => $this->getStatusDate($row),
             ];
 
             $diag1 = strtolower(trim($row['Diag1stVisit1'] ?? ''));
@@ -184,8 +204,9 @@ class ImportDataController extends Controller
                 'diagnosis_4' => $this->mappings['diagnosis_types'][$diag4] ?? null,
                 'art_pre_exposure_id' => $this->mappings['art_pre_exposures'][$row['ARTPreExposure']] ?? null,
                 'art_start_place_id' => $this->mappings['art_start_places'][$row['StartARTPlace']] ?? null,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'art_start_date' => $this->validateDate($row['StartARTDate']) ?? null,
+                // 'created_at' => now(),
+                // 'updated_at' => now(),
             ];
         }
 
@@ -222,33 +243,35 @@ class ImportDataController extends Controller
         }
     }
 
-    private function processVisitsData($filePath, $patientIdMap, $batchId)
+    private function processVisitsData($filePath, $patientMaps, $batchId)
     {
         $visitCount = 0;
         $batch = [];
         $rowCount = 0;
+        $patientIdMap = $patientMaps['idMap'];
+        $patientSiteMap = $patientMaps['siteMap']; // Get the site map
 
-        (new FastExcel)->import($filePath, function ($row) use (&$batch, &$visitCount, $patientIdMap, &$rowCount, &$batchId) {
+        (new FastExcel)->import($filePath, function ($row) use (&$batch, &$visitCount, $patientIdMap, $patientSiteMap, &$rowCount, $batchId) {
             $batch[] = $row;
             $rowCount++;
 
             if (count($batch) >= $this->batchSize) {
-                $visitCount += $this->insertVisitBatch($batch, $patientIdMap, $batchId);
+                $visitCount += $this->insertVisitBatch($batch, $patientIdMap, $patientSiteMap, $batchId);
                 $this->updateProgress('visits', count($batch));
                 $batch = [];
-                gc_collect_cycles(); // Force garbage collection
+                gc_collect_cycles();
             }
         });
 
         if (! empty($batch)) {
-            $visitCount += $this->insertVisitBatch($batch, $patientIdMap, $batchId);
+            $visitCount += $this->insertVisitBatch($batch, $patientIdMap, $patientSiteMap, $batchId);
             $this->updateProgress('visits', count($batch));
         }
 
         return $visitCount;
     }
 
-    private function insertVisitBatch($rows, $patientIdMap, $batchId)
+    private function insertVisitBatch($rows, $patientIdMap, $patientSiteMap, $batchId)
     {
         $visitsToInsert = [];
         $visitDetailsToInsert = [];
@@ -261,11 +284,25 @@ class ImportDataController extends Controller
                 continue;
             }
 
-            $facilityName = strtolower(trim($row['FacilityName'] ?? ''));
-            $facilityId = $this->mappings['facilities'][$facilityName] ?? null;
+            $facilityName = trim($row['FacilityName'] ?? '');
+            $facilityId = null;
+
+            // Handle 'NA' facility name
+            if (strtolower($facilityName) === 'na') {
+                $patientNumber = $row['PatientNumber'];
+                $siteCode = $patientSiteMap[$patientNumber] ?? null;
+                $facilityId = $this->getNaFacilityId($siteCode);
+            } else {
+                $facilityNameLower = strtolower($facilityName);
+                $facilityId = $this->mappings['facilities'][$facilityNameLower] ?? null;
+            }
 
             if (! $facilityId) {
-                throw new \Exception("Invalid Facility Name: '$facilityName' for Patient Number: {$row['PatientNumber']}");
+                $patientNumber = $row['PatientNumber'];
+                $msg = $facilityName === 'na'
+                    ? "Invalid Site Code for NA Facility: '$siteCode'"
+                    : "Invalid Facility Name: '$facilityName'";
+                throw new \Exception($msg." for Patient Number: $patientNumber");
             }
 
             $tempVisitId = $index + 1; // Temporary ID based on row index
@@ -281,8 +318,8 @@ class ImportDataController extends Controller
                 'visit_type_id' => $this->mappings['visit_types'][$row['VisitType']] ?? null,
                 'transfer_type_id' => $this->mappings['transfer_types'][$row['Transfer']] ?? null,
                 'batch_id' => $batchId,
-                'created_at' => now(),
-                'updated_at' => now(),
+                // 'created_at' => now(),
+                // 'updated_at' => now(),
             ];
 
             $diag1 = strtolower(trim($row['DiagNew1'] ?? ''));
@@ -447,5 +484,46 @@ class ImportDataController extends Controller
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function getNaFacilityId($siteCode)
+    {
+        $siteCode = strtoupper(trim($siteCode));
+        $naFacilityMap = [
+            'E' => 35,
+            'F' => 36,
+            'M' => 37,
+            'C' => 38,
+            'D' => 39,
+            'S' => 40,
+        ];
+
+        return $naFacilityMap[$siteCode] ?? null;
+    }
+
+    //
+    // Add new helper methods to the class:
+    private function determinePatientStatus($row)
+    {
+        if ($this->validateDate($row['Dead'] ?? null)) {
+            return 5;
+        } // Dead status
+        if ($this->validateDate($row['Lost'] ?? null)) {
+            return 4;
+        } // Lost status
+
+        return null;
+    }
+
+    private function getStatusDate($row)
+    {
+        if ($deadDate = $this->validateDate($row['Dead'] ?? null)) {
+            return $deadDate;
+        }
+        if ($lostDate = $this->validateDate($row['Lost'] ?? null)) {
+            return $lostDate;
+        }
+
+        return null;
     }
 }

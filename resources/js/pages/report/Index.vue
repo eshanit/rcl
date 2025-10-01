@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import {
     ChartPieIcon,
     FolderIcon,
@@ -13,6 +13,8 @@ import {
 } from '@heroicons/vue/24/outline';
 import { Card } from '@/components/ui/card';
 
+const page = usePage();
+const auth = computed(() => page.props.auth);
 
 const props = defineProps<{
     title: string,
@@ -47,8 +49,8 @@ const navigateTo = (type: string) => {
                         <i class="fas fa-user-md text-blue-600"></i>
                     </div>
                     <div>
-                        <p class="text-sm text-gray-600">Welcome back</p>
-                        <p class="font-medium">Dr. John Doe</p>
+                        <p class="text-sm text-gray-600">Logged In</p>
+                        <p class="font-medium">{{ auth.user.name }}</p>
                     </div>
                 </div>
             </div>

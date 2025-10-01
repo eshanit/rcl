@@ -18,38 +18,26 @@ class SiteSeeder extends Seeder
             [
                 'name' => 'E',
                 'cohort_id' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'F',
                 'cohort_id' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'M',
                 'cohort_id' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'C',
                 'cohort_id' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'D',
                 'cohort_id' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'S',
                 'cohort_id' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
 
         ];

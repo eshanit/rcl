@@ -3,10 +3,10 @@
 namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use App\Models\Status;
+use App\Models\PatientStatus;
 use Illuminate\Database\Seeder;
 
-class StatusSeeder extends Seeder
+class PatientStatusSeeder extends Seeder
 {
     /**
      * Run the database seeds.
@@ -32,6 +32,6 @@ class StatusSeeder extends Seeder
             ],
         ];
 
-        Status::insert($statuses);
+        PatientStatus::insert($statuses);
     }
 }

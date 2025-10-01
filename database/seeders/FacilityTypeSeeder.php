@@ -18,20 +18,14 @@ class FacilityTypeSeeder extends Seeder
             [
                 'name' => 'Hospital',
                 'code' => '221',
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Peripheral',
                 'code' => '222',
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Not Applicable',
                 'code' => 'NA',
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
         ];
 

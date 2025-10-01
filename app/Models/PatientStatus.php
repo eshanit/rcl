@@ -14,9 +14,4 @@ class PatientStatus extends Model
     {
         return $this->belongsTo(Patient::class);
     }
-
-    public function status(): BelongsTo
-    {
-        return $this->belongsTo(Status::class);
-    }
 }

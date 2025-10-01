@@ -16,7 +16,6 @@ return new class extends Migration
             $table->id();
             $table->enum('name', array_map(fn ($type) => $type->value, FacilityType::cases()))->default(FacilityType::NOT_APPLICABLE->value);
             $table->string('code')->unique();
-            $table->timestamps();
         });
     }
 

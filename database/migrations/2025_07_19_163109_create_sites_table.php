@@ -16,7 +16,6 @@ return new class extends Migration
             $table->id();
             $table->string('name')->unique();
             $table->foreignIdFor(Cohort::class)->constrained()->cascadeOnDelete();
-            $table->timestamps();
         });
     }
 
