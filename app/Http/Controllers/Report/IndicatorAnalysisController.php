@@ -1101,51 +1101,119 @@ class IndicatorAnalysisController extends Controller
     }
 
     // 4. Patients with suppressed viral load
+    // protected function calculatePatientsWithSuppressedViralLoad($cohortId, $siteId, $facilityId, $startDate, $endDate)
+    // {
+    //     $query = VisitDetail::where('viral_load', '<', 1000)
+    //         ->whereHas('visit', function ($query) use ($startDate, $endDate) {
+    //             if ($startDate) {
+    //                 $query->where('actual_visit_date', '>=', $startDate);
+    //             }
+    //             if ($endDate) {
+    //                 $query->where('actual_visit_date', '<=', $endDate);
+    //             }
+    //         })
+    //         ->with(['visit.patient']);
+
+    //     // Apply other filters
+    //     $this->applyVisitDetailFilters($query, $cohortId, $siteId, $facilityId);
+
+    //     $suppressedVisits = $query->get();
+
+    //     $results = $this->initializeResults();
+    //     $total = 0;
+    //     $uniquePatients = [];
+
+    //     foreach ($suppressedVisits as $visitDetail) {
+    //         $patient = $visitDetail->visit->patient;
+
+    //         // Count unique patients
+    //         if (in_array($patient->id, $uniquePatients)) {
+    //             continue;
+    //         }
+    //         $uniquePatients[] = $patient->id;
+
+    //         $ageGroup = $this->getAgeGroup($patient->date_of_birth);
+    //         $gender = $this->mapGender($patient->gender);
+
+    //         $results[$ageGroup][$gender]++;
+    //         $results[$ageGroup]['total']++;
+    //         $total++;
+    //     }
+
+    //     return [
+    //         'indicator' => 'Patients with suppressed viral load (<1000 copies)',
+    //         'total' => $total,
+    //         'breakdown' => $results,
+    //     ];
+    // }
     protected function calculatePatientsWithSuppressedViralLoad($cohortId, $siteId, $facilityId, $startDate, $endDate)
-    {
-        $query = VisitDetail::where('viral_load', '<', 1000)
-            ->whereHas('visit', function ($query) use ($startDate, $endDate) {
-                if ($startDate) {
-                    $query->where('actual_visit_date', '>=', $startDate);
-                }
-                if ($endDate) {
-                    $query->where('actual_visit_date', '<=', $endDate);
-                }
-            })
-            ->with(['visit.patient']);
+{
+    // Get latest suppressed viral load for each patient within date range
+    $query = DB::table('patients')
+        ->select([
+            'patients.id',
+            'patients.date_of_birth',
+            'patients.gender',
+            'latest_vl.actual_visit_date as vl_date',
+            'latest_vl.viral_load as vl_value'
+        ])
+        ->join(DB::raw('(
+            SELECT 
+                v.patient_id,
+                v.actual_visit_date,
+                vd.viral_load,
+                v.facility_id,
+                ROW_NUMBER() OVER (PARTITION BY v.patient_id ORDER BY v.actual_visit_date DESC) as rn
+            FROM visits v
+            JOIN visit_details vd ON vd.visit_id = v.id
+            WHERE vd.viral_load IS NOT NULL
+              AND vd.viral_load >= 0
+              AND v.actual_visit_date BETWEEN ? AND ?
+        ) latest_vl'), function ($join) use ($startDate, $endDate) {
+            $join->on('patients.id', '=', 'latest_vl.patient_id')
+                ->where('latest_vl.rn', '=', 1) // Latest per patient
+                ->where('latest_vl.viral_load', '<', 1000); // Suppressed
+        })
+        ->setBindings([
+            $startDate ?? '1900-01-01',
+            $endDate ?? now(),
+        ]);
 
-        // Apply other filters
-        $this->applyVisitDetailFilters($query, $cohortId, $siteId, $facilityId);
-
-        $suppressedVisits = $query->get();
-
-        $results = $this->initializeResults();
-        $total = 0;
-        $uniquePatients = [];
-
-        foreach ($suppressedVisits as $visitDetail) {
-            $patient = $visitDetail->visit->patient;
-
-            // Count unique patients
-            if (in_array($patient->id, $uniquePatients)) {
-                continue;
-            }
-            $uniquePatients[] = $patient->id;
-
-            $ageGroup = $this->getAgeGroup($patient->date_of_birth);
-            $gender = $this->mapGender($patient->gender);
-
-            $results[$ageGroup][$gender]++;
-            $results[$ageGroup]['total']++;
-            $total++;
-        }
-
-        return [
-            'indicator' => 'Patients with suppressed viral load (<1000 copies)',
-            'total' => $total,
-            'breakdown' => $results,
-        ];
+    // Apply filters
+    if ($cohortId) {
+        $query->join('sites', 'patients.site_id', '=', 'sites.id')
+            ->where('sites.cohort_id', $cohortId);
     }
+    
+    if ($siteId) {
+        $query->where('patients.site_id', $siteId);
+    }
+    
+    if ($facilityId) {
+        $query->where('latest_vl.facility_id', $facilityId);
+    }
+
+    $patients = $query->get();
+
+    // Prepare breakdown
+    $results = $this->initializeResults();
+    $total = 0;
+
+    foreach ($patients as $patient) {
+        $ageGroup = $this->getAgeGroup($patient->date_of_birth, $patient->vl_date);
+        $gender = $this->mapGender($patient->gender);
+
+        $results[$ageGroup][$gender]++;
+        $results[$ageGroup]['total']++;
+        $total++;
+    }
+
+    return [
+        'indicator' => 'Patients with suppressed viral load (<1000 copies)',
+        'total' => $total,
+        'breakdown' => $results,
+    ];
+}
 
     // 5. Patients with suppressed at 6 months viral load
     protected function calculateViralSuppressionAt6Months($cohortId, $siteId, $facilityId, $startDate, $endDate)
