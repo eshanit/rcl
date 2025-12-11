@@ -1146,61 +1146,82 @@ class IndicatorAnalysisController extends Controller
     //         'breakdown' => $results,
     //     ];
     // }
-    protected function calculatePatientsWithSuppressedViralLoad($cohortId, $siteId, $facilityId, $startDate, $endDate)
+protected function calculatePatientsWithSuppressedViralLoad($cohortId, $siteId, $facilityId, $startDate, $endDate)
 {
-    // Get latest suppressed viral load for each patient within date range
-    $query = DB::table('patients')
-        ->select([
-            'patients.id',
-            'patients.date_of_birth',
-            'patients.gender',
-            'latest_vl.actual_visit_date as vl_date',
-            'latest_vl.viral_load as vl_value'
-        ])
-        ->join(DB::raw('(
-            SELECT 
-                v.patient_id,
-                v.actual_visit_date,
-                vd.viral_load,
-                v.facility_id,
-                ROW_NUMBER() OVER (PARTITION BY v.patient_id ORDER BY v.actual_visit_date DESC) as rn
-            FROM visits v
-            JOIN visit_details vd ON vd.visit_id = v.id
-            WHERE vd.viral_load IS NOT NULL
-              AND vd.viral_load >= 0
-              AND v.actual_visit_date BETWEEN ? AND ?
-        ) latest_vl'), function ($join) use ($startDate, $endDate) {
-            $join->on('patients.id', '=', 'latest_vl.patient_id')
-                ->where('latest_vl.rn', '=', 1) // Latest per patient
-                ->where('latest_vl.viral_load', '<', 1000); // Suppressed
+    // Step 1: Build base query for patients
+    $query = Patient::query()
+        ->whereHas('visits', function ($visitQuery) use ($startDate, $endDate, $facilityId) {
+            // Filter visits by date range
+            $visitQuery->whereBetween('actual_visit_date', [
+                $startDate ?? '1900-01-01',
+                $endDate ?? now()
+            ]);
+            
+            // Filter by facility if specified
+            if ($facilityId) {
+                $visitQuery->where('facility_id', $facilityId);
+            }
+            
+            // Ensure the visit has a viral load test
+            $visitQuery->whereHas('visitDetails', function ($detailQuery) {
+                $detailQuery->whereNotNull('viral_load')
+                    ->where('viral_load', '>=', 0);
+            });
+            
+            // Get the latest visit in the date range
+            $visitQuery->orderBy('actual_visit_date', 'desc')
+                ->take(1);
         })
-        ->setBindings([
-            $startDate ?? '1900-01-01',
-            $endDate ?? now(),
-        ]);
+        ->with(['visits' => function ($visitQuery) use ($startDate, $endDate, $facilityId) {
+            $visitQuery->whereBetween('actual_visit_date', [
+                $startDate ?? '1900-01-01',
+                $endDate ?? now()
+            ]);
+            
+            if ($facilityId) {
+                $visitQuery->where('facility_id', $facilityId);
+            }
+            
+            $visitQuery->orderBy('actual_visit_date', 'desc')
+                ->take(1)
+                ->with('visitDetails');
+        }]);
 
-    // Apply filters
+    // Apply cohort and site filters
     if ($cohortId) {
-        $query->join('sites', 'patients.site_id', '=', 'sites.id')
-            ->where('sites.cohort_id', $cohortId);
+        $query->whereHas('site.cohort', function ($q) use ($cohortId) {
+            $q->where('id', $cohortId);
+        });
     }
     
     if ($siteId) {
-        $query->where('patients.site_id', $siteId);
-    }
-    
-    if ($facilityId) {
-        $query->where('latest_vl.facility_id', $facilityId);
+        $query->where('site_id', $siteId);
     }
 
+    // Get all patients
     $patients = $query->get();
 
-    // Prepare breakdown
+    // Step 2: Process each patient to check their latest viral load
+    $suppressedPatients = $patients->filter(function ($patient) {
+        $latestVisit = $patient->visits->first();
+        
+        if (!$latestVisit || !$latestVisit->visitDetails) {
+            return false;
+        }
+        
+        $viralLoad = $latestVisit->visitDetails->viral_load;
+        
+        // Check if suppressed
+        return $viralLoad !== null && $viralLoad >= 0 && $viralLoad < 1000;
+    });
+
+    // Step 3: Prepare breakdown
     $results = $this->initializeResults();
     $total = 0;
 
-    foreach ($patients as $patient) {
-        $ageGroup = $this->getAgeGroup($patient->date_of_birth, $patient->vl_date);
+    foreach ($suppressedPatients as $patient) {
+        $latestVisit = $patient->visits->first();
+        $ageGroup = $this->getAgeGroup($patient->date_of_birth, $latestVisit->actual_visit_date);
         $gender = $this->mapGender($patient->gender);
 
         $results[$ageGroup][$gender]++;
