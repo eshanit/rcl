@@ -49,4 +49,14 @@ class InitialVisit extends Model
     {
         return $this->belongsTo(DiagnosisType::class);
     }
+
+    public function site()
+    {
+        return $this->hasOneThrough(Site::class, Patient::class, 'patient_id', 'id', 'id', 'site_id');
+    }
+
+    public function visits()
+    {
+        return $this->hasManyThrough(Visit::class, Patient::class, 'id', 'patient_id', 'patient_id', 'id');
+    }
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import Chart from 'chart.js/auto';
 
 const props = defineProps({
@@ -41,6 +41,12 @@ watch(() => props.data, () => {
   }
   renderChart();
 }, { deep: true });
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+});
 
 function renderChart() {
   if (!chartCanvas.value) return;
@@ -109,6 +115,10 @@ function renderChart() {
 </script>
 
 <template>
+  <!-- <pre>
+  {{ props.data }}
+  </pre> -->
+
   <div class="chart-container">
     <canvas ref="chartCanvas"></canvas>
   </div>

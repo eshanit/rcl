@@ -35,4 +35,27 @@ export interface User {
     updated_at: string;
 }
 
+export interface StatItem {
+    title: string;
+    value: string | number;
+    icon: string;
+    color: string;
+    bg: string;
+}
+
+export interface AdditionalStats {
+    total_patients?: number;
+    art_coverage: number;
+    active_cohorts: number;
+    total_sites: number;
+}
+
+export interface ActivityItem {
+    title: string;
+    description: string;
+    time: string;
+    icon: string;
+    color: string;
+}
+
 export type BreadcrumbItemType = BreadcrumbItem;

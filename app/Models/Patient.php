@@ -46,6 +46,11 @@ class Patient extends Model
         return $this->hasOne(InitialVisit::class);
     }
 
+    public function lastVisit()
+{
+    return $this->hasOne(Visit::class)->latest('actual_visit_date');
+}
+
     public function patientStatuses(): HasMany
     {
         return $this->hasMany(PatientStatus::class);

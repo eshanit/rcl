@@ -1,0 +1,335 @@
+# Entity Relationship Diagram
+
+## Entities
+
+### ArtPreExposure (`App\Models\ArtPreExposure`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `Code` (varchar)
+
+### ArtStartPlace (`App\Models\ArtStartPlace`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### ArvSwitchReason (`App\Models\ArvSwitchReason`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### Cohort (`App\Models\Cohort`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+### DiagnosisType (`App\Models\DiagnosisType`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+
+### Facility (`App\Models\Facility`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `facility_type_id` (bigint)
+- `site_id` (bigint)
+
+### FacilityType (`App\Models\FacilityType`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (enum)
+- `code` (varchar)
+
+### InitialVisit (`App\Models\InitialVisit`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `patient_id` (bigint)
+- `first_positive_hiv` (varchar)
+- `who_stage` (int)
+- `diagnosis_1` (bigint)
+- `diagnosis_2` (bigint)
+- `diagnosis_3` (bigint)
+- `diagnosis_4` (bigint)
+- `art_pre_exposure_id` (bigint)
+- `previous_tb_tt` (enum)
+- `art_start_place_id` (bigint)
+- `art_start_date` (date)
+- `cd4_baseline` (varchar)
+
+### KaposiStatus (`App\Models\KaposiStatus`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### Medication (`App\Models\Medication`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### MedicationStatus (`App\Models\MedicationStatus`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (enum)
+
+### Patient (`App\Models\Patient`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `p_number` (varchar)
+- `np_number` (varchar)
+- `date_of_birth` (date)
+- `gender` (enum)
+- `height` (int)
+- `site_id` (bigint)
+- `patient_status_id` (bigint)
+- `status_date` (date)
+- `batch_id` (varchar)
+
+### PatientStatus (`App\Models\PatientStatus`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+
+### SideEffect (`App\Models\SideEffect`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### Site (`App\Models\Site`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `cohort_id` (bigint)
+
+### TbStatus (`App\Models\TbStatus`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### TransferType (`App\Models\TransferType`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+### User (`App\Models\User`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `email` (varchar)
+- `email_verified_at` (timestamp)
+- `password` (varchar)
+- `remember_token` (varchar)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+### Visit (`App\Models\Visit`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `patient_id` (bigint)
+- `facility_id` (bigint)
+- `instance` (int)
+- `visit_type_id` (bigint)
+- `app_visit_date` (date)
+- `actual_visit_date` (date)
+- `next_visit_date` (date)
+- `transfer_smart` (tinyint)
+- `transfer_type_id` (bigint)
+- `batch_id` (varchar)
+
+### VisitDetail (`App\Models\VisitDetail`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `visit_id` (bigint)
+- `adherent` (enum)
+- `weight` (varchar)
+- `height_children` (varchar)
+- `pregnant` (enum)
+- `tlc` (int)
+- `cd4` (int)
+- `cd4_perc` (int)
+- `sputum_tb_test` (enum)
+- `alt` (int)
+- `viral_load` (int)
+- `creatinine` (varchar)
+- `creatinine_2` (varchar)
+- `haemoglobin` (varchar)
+- `arv2` (varchar)
+- `arv2_name` (varchar)
+- `arv_switch_reason_id` (bigint)
+- `tb_status_id` (bigint)
+- `kaposi_status_id` (bigint)
+- `diagnosis_1` (bigint)
+- `diagnosis_2` (bigint)
+- `new_who_stage` (int)
+- `side_effect_id` (bigint)
+- `grupo_apoio` (varchar)
+- `hbsag` (varchar)
+- `ac_anti_vhc` (varchar)
+- `tas` (varchar)
+- `tad` (varchar)
+- `plaquetas` (varchar)
+- `ast_got` (varchar)
+
+### VisitMedication (`App\Models\VisitMedication`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `visit_id` (bigint)
+- `medication_status_id` (bigint)
+- `medication_id` (bigint)
+
+### VisitType (`App\Models\VisitType`)
+
+#### Attributes:
+
+- `id` (bigint)
+- `name` (varchar)
+- `code` (varchar)
+
+## Relationships
+
+### ArtPreExposure Relationships
+
+- **HasMany** `initialVisits` to InitialVisit (Local Key: `id`, Foreign Key: `art_pre_exposure_id`)
+
+### ArtStartPlace Relationships
+
+- **HasMany** `initialVisits` to InitialVisit (Local Key: `id`, Foreign Key: `art_start_place_id`)
+
+### ArvSwitchReason Relationships
+
+- **HasMany** `VisitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `arv_switch_reason_id`)
+
+### Cohort Relationships
+
+- **HasMany** `sites` to Site (Local Key: `id`, Foreign Key: `cohort_id`)
+
+### DiagnosisType Relationships
+
+- **HasMany** `initialVisits` to InitialVisit (Local Key: `id`, Foreign Key: `diagnosis_type_id`)
+- **HasMany** `VisitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `diagnosis_type_id`)
+
+### Facility Relationships
+
+- **BelongsTo** `site` to Site (Local Key: `site_id`, Foreign Key: `id`)
+- **HasMany** `visits` to Visit (Local Key: `id`, Foreign Key: `facility_id`)
+
+### InitialVisit Relationships
+
+- **BelongsTo** `patient` to Patient (Local Key: `patient_id`, Foreign Key: `id`)
+- **BelongsTo** `artPreExposure` to ArtPreExposure (Local Key: `art_pre_exposure_id`, Foreign Key: `id`)
+- **BelongsTo** `artStartPlace` to ArtStartPlace (Local Key: `art_start_place_id`, Foreign Key: `id`)
+- **BelongsTo** `diagnosisType` to DiagnosisType (Local Key: `diagnosis_type_id`, Foreign Key: `id`)
+
+### KaposiStatus Relationships
+
+- **HasMany** `VisitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `kaposi_status_id`)
+
+### Patient Relationships
+
+- **BelongsTo** `site` to Site (Local Key: `site_id`, Foreign Key: `id`)
+- **HasOne** `initialVisit` to InitialVisit (Local Key: `id`, Foreign Key: `patient_id`)
+- **HasMany** `patientStatuses` to PatientStatus (Local Key: `id`, Foreign Key: `patient_id`)
+- **HasMany** `visits` to Visit (Local Key: `id`, Foreign Key: `patient_id`)
+
+### PatientStatus Relationships
+
+- **BelongsTo** `patient` to Patient (Local Key: `patient_id`, Foreign Key: `id`)
+
+### SideEffect Relationships
+
+- **HasMany** `VisitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `side_effect_id`)
+
+### Site Relationships
+
+- **BelongsTo** `cohort` to Cohort (Local Key: `cohort_id`, Foreign Key: `id`)
+- **HasMany** `facilities` to Facility (Local Key: `id`, Foreign Key: `site_id`)
+- **HasMany** `patients` to Patient (Local Key: `id`, Foreign Key: `site_id`)
+
+### TbStatus Relationships
+
+- **HasMany** `visitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `tb_status_id`)
+
+### TransferType Relationships
+
+- **HasMany** `visits` to Visit (Local Key: `id`, Foreign Key: `transfer_type_id`)
+
+### User Relationships
+
+
+### Visit Relationships
+
+- **BelongsTo** `patient` to Patient (Local Key: `patient_id`, Foreign Key: `id`)
+- **BelongsTo** `facility` to Facility (Local Key: `facility_id`, Foreign Key: `id`)
+- **BelongsTo** `visitType` to VisitType (Local Key: `visit_type_id`, Foreign Key: `id`)
+- **BelongsTo** `transferType` to TransferType (Local Key: `transfer_type_id`, Foreign Key: `id`)
+- **HasOne** `visitDetails` to VisitDetail (Local Key: `id`, Foreign Key: `visit_id`)
+- **HasMany** `medications` to VisitMedication (Local Key: `id`, Foreign Key: `visit_id`)
+
+### VisitDetail Relationships
+
+- **BelongsTo** `visit` to Visit (Local Key: `visit_id`, Foreign Key: `id`)
+- **BelongsTo** `tbStatus` to TbStatus (Local Key: `tb_status_id`, Foreign Key: `id`)
+- **BelongsTo** `kaposiStatus` to KaposiStatus (Local Key: `kaposi_status_id`, Foreign Key: `id`)
+- **BelongsTo** `diagnosisType` to DiagnosisType (Local Key: `diagnosis_type_id`, Foreign Key: `id`)
+- **BelongsTo** `sideEffect` to SideEffect (Local Key: `side_effect_id`, Foreign Key: `id`)
+
+### VisitMedication Relationships
+
+- **BelongsTo** `visit` to Visit (Local Key: `visit_id`, Foreign Key: `id`)
+- **BelongsTo** `medication` to Medication (Local Key: `medication_id`, Foreign Key: `id`)
+
+### VisitType Relationships
+
+- **HasMany** `visits` to Visit (Local Key: `id`, Foreign Key: `visit_type_id`)
+

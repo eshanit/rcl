@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { ref, computed, watch, onMounted } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ICohort, IFacility, IReportData, ISite } from '@/types/reports';
+import { ICohort, IFacility, IIndicator, IReportData, ISite } from '@/types/reports';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -17,19 +17,26 @@ import {
     ArrowPathIcon,
     ChevronRightIcon,
     InformationCircleIcon,
-    ExclamationTriangleIcon,
-    DocumentArrowDownIcon,
-    EyeIcon,
-    EyeSlashIcon
+    ExclamationTriangleIcon
 } from '@heroicons/vue/24/outline';
-
-// Chart components
-import AgeChart from '@/components/charts/AgeChart.vue';
-import GenderChart from '@/components/charts/GenderChart.vue';
-import ViralLoadChart from '@/components/charts/ViralLoadChart.vue';
-
-// Debug flag
-const DEBUG = true;
+import TimeToFirstVL from '@/components/reports/TimeToFirstVL.vue';
+import ARTPatientsDeath from '@/components/reports/ARTPatientsDeath.vue';
+import MissedAppointmentsSummaryCard from '@/components/reports/Summary/MissedAppointmentsCard.vue';
+import PregnantWomanSummaryCard from '@/components/reports/Summary/PregnantWomanCard.vue';
+import PregnantWomanDiedSummaryCard from '@/components/reports/Summary/PregnantWomanDiedCard.vue';
+import PregnantWomanLTFUSummaryCard from '@/components/reports/Summary/PregnantWomanLTFUCard.vue';
+import RetainedSummaryCard from '@/components/reports/Summary/RetainedCard.vue';
+import LTFandReengaged from '@/components/reports/LTFandReengaged.vue';
+import MissedVisitRatesSeverity from '@/components/reports/MissedVisitRatesSeverity.vue';
+import AppointmentAdherence from '@/components/reports/AppointmentAdherence.vue';
+import ViralSuppression6Months from '@/components/reports/ViralSuppression6Months.vue';
+import ViralSuppression12Months from '@/components/reports/ViralSuppression12Months.vue';
+import ViralSuppression24Months from '@/components/reports/ViralSuppression24Months.vue';
+import PregnantARTInitiated from '@/components/reports/PregnantARTInitiated.vue';
+import MedianDurationOnArt from '@/components/reports/MedianDurationOnArt.vue';
+import DeathOverTime from '@/components/reports/DeathOverTime.vue';
+import AgeAtDeath from '@/components/reports/AgeAtDeath.vue';
+import SurvivalAnalysis from '@/components/reports/SurvivalAnalysis.vue';
 
 const props = defineProps<{
     cohorts: ICohort[];
@@ -54,26 +61,12 @@ const breadcrumbs = [
     { title: 'Indicator Analysis', href: '' }
 ];
 
-// Report data and UI state
+// Report data
 const reportData = ref<IReportData | null | any>(props.initialReport || null);
+
+// UI State
 const activeTab = ref('filters');
 const isLoading = ref(false);
-const showDebug = ref(false);
-
-// Log report data for debugging
-onMounted(() => {
-    if (DEBUG) {
-        console.log('Initial props:', props);
-        console.log('Initial reportData:', reportData.value);
-    }
-});
-
-// Debug log function
-const debugLog = (...args: any[]) => {
-    if (DEBUG) {
-        console.log('[DEBUG]', ...args);
-    }
-};
 
 // Indicator options with categories
 const indicatorCategories = {
@@ -124,41 +117,28 @@ const indicatorCategories = {
 
 const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-        return dateString;
-    }
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 // Fetch report from backend
 const fetchReport = async () => {
     isLoading.value = true;
-    debugLog('Fetching report with params:', form.data());
-    
     try {
         await form.get(route('reports.indicators', { indicator: form.indicator }), {
             preserveState: true,
             preserveScroll: true,
             onSuccess: (page) => {
-                debugLog('Success response:', page);
                 reportData.value = page.props.report;
                 activeTab.value = 'results';
-                debugLog('Report data set to:', reportData.value);
-                debugLog('Has breakdown?', hasBreakdown());
-                debugLog('Report keys:', Object.keys(reportData.value || {}));
-            },
-            onError: (errors) => {
-                console.error('Error fetching report:', errors);
             },
             onFinish: () => {
                 isLoading.value = false;
             }
         });
     } catch (error) {
-        console.error('Error fetching report:', error);
         isLoading.value = false;
+        console.error('Error fetching report:', error);
     }
 };
 
@@ -174,38 +154,13 @@ const resetFilters = () => {
     activeTab.value = 'filters';
 };
 
-// Enhanced data checking functions
-const hasBreakdown = () => {
-    const has = reportData.value && 'breakdown' in reportData.value;
-    debugLog('hasBreakdown check:', has, 'reportData:', reportData.value);
-    return has;
-};
-
-const hasData = () => {
-    if (!reportData.value) {
-        debugLog('hasData: No report data');
-        return false;
-    }
-    
-    // Check if we have any meaningful data
-    const hasBreakdownData = hasBreakdown() && Object.keys(reportData.value.breakdown || {}).length > 0;
-    const hasTotal = reportData.value.total !== undefined && reportData.value.total !== null;
-    const hasPercentage = reportData.value.percentage !== undefined && reportData.value.percentage !== null;
-    
-    debugLog('hasData check:', { hasBreakdownData, hasTotal, hasPercentage });
-    
-    return hasBreakdownData || hasTotal || hasPercentage;
-};
-
-const getBreakdownKeys = () => {
-    if (!hasBreakdown()) return [];
-    return Object.keys(reportData.value.breakdown || {});
-};
-
-const getBreakdownData = (key: string) => {
-    if (!hasBreakdown()) return null;
-    return reportData.value.breakdown[key] || null;
-};
+// Computed properties for UI logic
+const hasBreakdown = () => reportData.value && 'breakdown' in reportData.value;
+const hasPercentageMetrics = () => reportData.value && 'percentage' in reportData.value;
+const isMissedAppointmentsReport = () => reportData.value?.indicator.includes('Missed Appointment');
+const isPregnantWomenReport = () => reportData.value?.indicator.includes('Pregnant women');
+const isPregnantWomenLTFUReport = () => reportData.value?.indicator.includes('Pregnant women LTFU');
+const isPregnantWomenDiedReport = () => reportData.value?.indicator.includes('Pregnant women Died');
 
 // Computed properties for cascading filters
 const filteredSites = computed(() => {
@@ -254,144 +209,57 @@ watch(() => form.facility_id, (newFacilityId) => {
     }
 });
 
-// Chart type mapping based on indicator
-const getChartType = (indicator: string) => {
-    const chartMappings: Record<string, string> = {
-        // Enrollment & Demographics
-        'TotalPatientsEverEnrolled': 'bar',
-        'EnrolledOnART': 'bar',
-        'ProportionOfChildrenOnART': 'pie',
+// Table type determination
+const tableType = computed(() => {
+    if (!reportData.value || !hasBreakdown()) return null;
 
-        // Retention & Adherence
-        'PatientsRetainedAfter12Months': 'line',
-        'PatientsRetainedAfter24Months': 'line',
-        'PatientsRetainedAfter60Months': 'line',
-        'PatientsRetainedAfter120Months': 'line',
-        'PatientsLTFUAndReengaged': 'bar',
-        'MissedAppointmentVisits': 'bar',
-        'MissedAppointments': 'bar',
-        'MissedVisitRates': 'bar',
-        'AppointmentAdherence': 'line',
-
-        // Clinical Outcomes
-        'PatientsWithSuppressedViralLoad': 'bar',
-        'TimeToFirstViralLoad': 'histogram',
-        'ViralSuppressionAt6Months': 'grouped-bar',
-        'ViralSuppressionAt12Months': 'grouped-bar',
-        'ViralSuppressionAt24Months': 'grouped-bar',
-        'PatientsScreenedForTB': 'line',
-        'PatientsOnTBTreatment': 'bar',
-        'MedianDurationOnART': '',
-
-        // Mortality & Survival
-        'DeathsAmongART': 'line',
-        'DeathsOverTime': 'line',
-        'AgeAtDeath': 'histogram',
-        'SurvivalAnalysis': 'line',
-
-        // Maternal & Child Health
-        'PregnantWomenRetainedAfter12Months': 'grouped-bar',
-        'PregnantWomenRetainedAfter24Months': 'grouped-bar',
-        'PregnantWomenLTFUAfter12Months': 'stacked-bar',
-        'PregnantWomenDiedWithin12Months': 'stacked-bar',
-        'PatientsInitiatedOnARTWhilstPregnant': 'line',
-
-        // Program Operations
-        'TransferredOut': 'bar',
-        'RegimenSwitches': 'stacked-bar'
-    };
-
-    return chartMappings[indicator] || 'bar'; // Default to bar chart
-};
-
-// Check if indicator should use a chart
-const shouldShowChart = (indicator: string) => {
-    return getChartType(indicator) !== '';
-};
-
-// Get chart data based on chart type
-const getChartData = (chartType: string) => {
-    if (!reportData.value?.breakdown) return {};
-
-    const breakdown = reportData.value.breakdown;
-
-    // Limit data processing to prevent memory issues
-    const maxEntries = 50;
-    let entryCount = 0;
-
-    try {
-        switch (chartType) {
-            case 'age':
-            case 'retention':
-            case 'default':
-                // Extract total values from breakdown data for AgeChart (limit entries)
-                const limitedBreakdown: Record<string, number> = {};
-                for (const [key, value] of Object.entries(breakdown)) {
-                    if (entryCount >= maxEntries) break;
-                    if (typeof value === 'object' && value !== null && 'total' in value) {
-                        limitedBreakdown[key] = (value as any).total;
-                    } else if (typeof value === 'number') {
-                        limitedBreakdown[key] = value;
-                    }
-                    entryCount++;
-                }
-                return limitedBreakdown;
-
-            case 'gender':
-                // Aggregate gender data across all age groups
-                const genderData: Array<{gender: string, count: number}> = [];
-                let totalMale = 0, totalFemale = 0, totalOther = 0;
-
-                for (const data of Object.values(breakdown)) {
-                    if (entryCount >= maxEntries) break;
-                    if (typeof data === 'object' && data !== null) {
-                        totalMale += (data as any).male || 0;
-                        totalFemale += (data as any).female || 0;
-                        totalOther += (data as any).other || 0;
-                    }
-                    entryCount++;
-                }
-
-                if (totalMale > 0) genderData.push({ gender: 'Male', count: totalMale });
-                if (totalFemale > 0) genderData.push({ gender: 'Female', count: totalFemale });
-                if (totalOther > 0) genderData.push({ gender: 'Other', count: totalOther });
-
-                return genderData;
-
-            case 'viral':
-                // For viral load, return data in Chart.js format
-                const labels = Object.keys(breakdown).slice(0, maxEntries);
-                const values = Object.values(breakdown).slice(0, maxEntries).map((val: any) =>
-                    typeof val === 'object' ? val.total || 0 : val
-                );
-
-                return {
-                    labels,
-                    values
-                };
-
-            default:
-                return {};
-        }
-    } catch (error) {
-        console.error('Error transforming chart data:', error);
-        return {};
+    if (reportData.value.indicator === 'Total patients ever enrolled on ART' || reportData.value.indicator === 'Patients Enrolled on ART') {
+        return 'proportions';
     }
+
+    if (reportData.value.indicator === 'Proportion of children on ART') {
+        return 'art-children';
+    }
+
+    if (reportData.value.indicator === 'Pregnant women retained after 12 months' || reportData.value.indicator === 'Pregnant women retained after 24 months') {
+        return 'pregnant-women';
+    }
+
+    if (reportData.value.indicator === 'Pregnant women LTFU after 12 months') {
+        return 'pregnant-women-ltfu';
+    }
+
+    if (reportData.value.indicator === 'Pregnant women died within 12 months') {
+        return 'pregnant-women-died';
+    }
+
+    return 'standard';
+});
+
+const isChildAgeGroup = (ageGroup: string | number) => {
+    const childGroups = [
+        '≤2 months', '3-12 months', '13-24 months', '25-59 months',
+        '5-9 years', '10-14 years', '15-18 years'
+    ];
+    return childGroups.includes(String(ageGroup));
 };
 
-// Debug button to force show debug info
-const toggleDebug = () => {
-    showDebug.value = !showDebug.value;
-    if (showDebug.value) {
-        console.log('=== DEBUG REPORT DATA ===');
-        console.log('reportData:', reportData.value);
-        console.log('Type:', typeof reportData.value);
-        console.log('Keys:', Object.keys(reportData.value || {}));
-        if (hasBreakdown()) {
-            console.log('Breakdown keys:', Object.keys(reportData.value.breakdown));
-            console.log('First breakdown item:', reportData.value.breakdown[Object.keys(reportData.value.breakdown)[0]]);
-        }
-        console.log('=== END DEBUG ===');
+// Helper functions
+const getProportionClass = (proportion: number) => {
+    if (proportion > 75) return 'text-emerald-600 bg-emerald-50';
+    if (proportion > 50) return 'text-amber-600 bg-amber-50';
+    return 'text-rose-600 bg-rose-50';
+};
+
+const getSeverityClass = (value: number, type: 'mortality' | 'retention' = 'retention') => {
+    if (type === 'mortality') {
+        if (value > 5) return 'text-rose-600 bg-rose-50';
+        if (value > 2) return 'text-amber-600 bg-amber-50';
+        return 'text-emerald-600 bg-emerald-50';
+    } else {
+        if (value > 75) return 'text-emerald-600 bg-emerald-50';
+        if (value > 50) return 'text-amber-600 bg-amber-50';
+        return 'text-rose-600 bg-rose-50';
     }
 };
 </script>
@@ -399,46 +267,6 @@ const toggleDebug = () => {
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
-            <!-- Debug Button -->
-            <div class="fixed bottom-4 right-4 z-10">
-                <Button @click="toggleDebug" size="sm" variant="outline" class="flex items-center gap-2">
-                    <EyeIcon v-if="!showDebug" class="h-4 w-4" />
-                    <EyeSlashIcon v-else class="h-4 w-4" />
-                    Debug
-                </Button>
-            </div>
-
-            <!-- Debug Panel -->
-            <div v-if="showDebug" class="fixed top-20 right-4 w-96 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-10 max-h-[80vh] overflow-y-auto">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-800">Debug Information</h3>
-                    <Button @click="showDebug = false" size="sm" variant="ghost">×</Button>
-                </div>
-                <div class="space-y-4 text-sm">
-                    <div>
-                        <div class="font-medium text-gray-700 mb-1">Report Data Status:</div>
-                        <div class="text-xs">
-                            <div>Has Data: {{ hasData() }}</div>
-                            <div>Has Breakdown: {{ hasBreakdown() }}</div>
-                            <div>Active Tab: {{ activeTab }}</div>
-                            <div>Loading: {{ isLoading }}</div>
-                        </div>
-                    </div>
-                    <div v-if="reportData">
-                        <div class="font-medium text-gray-700 mb-1">Report Data Keys:</div>
-                        <div class="text-xs text-gray-600">
-                            {{ Object.keys(reportData).join(', ') }}
-                        </div>
-                        <div v-if="hasBreakdown()" class="mt-2">
-                            <div class="font-medium text-gray-700 mb-1">Breakdown Keys:</div>
-                            <div class="text-xs text-gray-600">
-                                {{ Object.keys(reportData.breakdown).join(', ') }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Header -->
             <div class="border-b border-gray-200/50 bg-white/80 backdrop-blur-sm">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -454,11 +282,32 @@ const toggleDebug = () => {
                                 </div>
                             </div>
                             <h1 class="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
-                                Indicator Analysis
+                                Advanced <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                    Indicator Analysis
+                                </span>
                             </h1>
                             <p class="text-gray-600 mt-2">
                                 Analyze specific program performance indicators with precision and granularity
                             </p>
+                        </div>
+
+                        <!-- Quick Stats -->
+                        <div class="flex flex-wrap gap-4">
+                            <div class="bg-white/90 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 
+                                      shadow-sm min-w-[140px]">
+                                <p class="text-xs text-gray-500 mb-1">Cohorts</p>
+                                <p class="text-lg font-semibold text-gray-800">{{ cohorts.length }}</p>
+                            </div>
+                            <div class="bg-white/90 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 
+                                      shadow-sm min-w-[140px]">
+                                <p class="text-xs text-gray-500 mb-1">Sites</p>
+                                <p class="text-lg font-semibold text-gray-800">{{ sites.length }}</p>
+                            </div>
+                            <div class="bg-white/90 backdrop-blur-sm rounded-xl p-3 border border-gray-200/50 
+                                      shadow-sm min-w-[140px]">
+                                <p class="text-xs text-gray-500 mb-1">Facilities</p>
+                                <p class="text-lg font-semibold text-gray-800">{{ facilities.length }}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -488,8 +337,8 @@ const toggleDebug = () => {
                             ]" :disabled="!reportData">
                                 <ChartBarIcon class="h-5 w-5" />
                                 Analysis Results
-                                <span v-if="reportData && hasBreakdown()" class="ml-2 bg-blue-100 text-blue-600 text-xs px-2 py-0.5 rounded-full">
-                                    {{ getBreakdownKeys().length }} groups
+                                <span v-if="reportData" class="ml-2 bg-blue-100 text-blue-600 text-xs px-2 py-0.5 rounded-full">
+                                    {{ Object.keys(reportData.breakdown || {}).length }} groups
                                 </span>
                             </button>
                         </nav>
@@ -599,7 +448,8 @@ const toggleDebug = () => {
                                             <CalendarIcon class="h-4 w-4" />
                                             Start Date
                                         </Label>
-                                        <Input type="date" v-model="form.start_date" class="w-full" />
+                                        <Input type="date" v-model="form.start_date"
+                                               class="w-full" />
                                     </div>
 
                                     <!-- End Date -->
@@ -608,7 +458,8 @@ const toggleDebug = () => {
                                             <CalendarIcon class="h-4 w-4" />
                                             End Date
                                         </Label>
-                                        <Input type="date" v-model="form.end_date" class="w-full" />
+                                        <Input type="date" v-model="form.end_date"
+                                               class="w-full" />
                                     </div>
 
                                     <!-- Action Button -->
@@ -628,10 +479,31 @@ const toggleDebug = () => {
                             </form>
                         </div>
                     </Card>
+
+                    <!-- Quick Stats Preview -->
+                    <div v-if="reportData" class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Last Analysis Preview</h3>
+                        <Card class="bg-gradient-to-r from-blue-50/50 to-white rounded-2xl border border-blue-100/50 
+                                   p-4 cursor-pointer hover:shadow-md transition-shadow duration-300"
+                              @click="activeTab = 'results'">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">Last Generated</p>
+                                    <p class="font-semibold text-gray-800">{{ reportData?.indicator }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-600">Results</p>
+                                    <p class="text-lg font-bold text-blue-600">
+                                        {{ Object.keys(reportData?.breakdown || {}).length }} age groups
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
 
                 <!-- Results Panel -->
-                <div v-show="activeTab === 'results'">
+                <div v-show="activeTab === 'results' && reportData">
                     <div class="space-y-6">
                         <!-- Report Header -->
                         <Card class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
@@ -645,17 +517,17 @@ const toggleDebug = () => {
                                             </div>
                                             <div>
                                                 <h2 class="text-xl md:text-2xl font-bold text-gray-800">
-                                                    {{ reportData?.indicator || 'No Report Generated' }}
+                                                    {{ reportData?.indicator }}
                                                 </h2>
-                                                <div v-if="form.cohort_id || form.site_id || form.facility_id" class="flex flex-wrap gap-2 mt-2">
-                                                    <span v-if="form.cohort_id" class="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600">
-                                                        Cohort: {{ cohorts.find(c => c.id === Number(form.cohort_id))?.name || 'Unknown' }}
+                                                <div class="flex flex-wrap gap-2 mt-2">
+                                                    <span class="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600">
+                                                        {{ form.cohort_id ? cohorts.find(c => c.id === Number(form.cohort_id))?.name : 'All Cohorts' }}
                                                     </span>
                                                     <span v-if="form.site_id" class="text-xs px-3 py-1 rounded-full bg-green-50 text-green-600">
-                                                        Site: {{ filteredSites.find(s => s.id === Number(form.site_id))?.name || 'Unknown' }}
+                                                        {{ filteredSites.find(s => s.id === Number(form.site_id))?.name }}
                                                     </span>
                                                     <span v-if="form.facility_id" class="text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-600">
-                                                        Facility: {{ filteredFacilities.find(f => f.id === Number(form.facility_id))?.name || 'Unknown' }}
+                                                        {{ filteredFacilities.find(f => f.id === Number(form.facility_id))?.name }}
                                                     </span>
                                                 </div>
                                             </div>
@@ -666,108 +538,47 @@ const toggleDebug = () => {
                                         <p class="font-medium text-gray-800">
                                             {{ formatDate(form.start_date) || 'Start' }} - {{ formatDate(form.end_date) || 'End' }}
                                         </p>
-                                        <p class="text-xs text-gray-500 mt-1">Generated: Now</p>
+                                        <p class="text-xs text-gray-500 mt-1">Generated just now</p>
                                     </div>
                                 </div>
                             </div>
                         </Card>
 
-                        <!-- Data Status Indicators -->
-                        <div v-if="reportData" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card class="p-4 text-center">
-                                <div class="text-2xl font-bold text-blue-600">
-                                    {{ hasData() ? '✓' : '✗' }}
-                                </div>
-                                <div class="text-sm font-medium text-gray-700 mt-1">
-                                    Data Available
-                                </div>
-                            </Card>
-                            <Card class="p-4 text-center">
-                                <div class="text-2xl font-bold text-green-600">
-                                    {{ hasBreakdown() ? getBreakdownKeys().length : 0 }}
-                                </div>
-                                <div class="text-sm font-medium text-gray-700 mt-1">
-                                    Age Groups
-                                </div>
-                            </Card>
-                            <Card class="p-4 text-center">
-                                <div class="text-2xl font-bold text-purple-600">
-                                    {{ reportData.total || 0 }}
-                                </div>
-                                <div class="text-sm font-medium text-gray-700 mt-1">
-                                    Total Count
-                                </div>
-                            </Card>
-                        </div>
+                        <!-- Specialized Components -->
+                        <template v-if="reportData && reportData.indicator === 'Time to first Viral Load test'">
+                            <TimeToFirstVL :report-data="reportData"
+                                           :start-date="formatDate(form.start_date) || 'Start'"
+                                           :end-date="formatDate(form.end_date) || 'End'" />
+                        </template>
 
-                        <!-- Main Data Display -->
-                        <template v-if="hasData()">
-                            <!-- Show basic data if no breakdown -->
-                            <Card v-if="!hasBreakdown() && (reportData.total || reportData.percentage)" 
-                                  class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
-                                <div class="p-6">
-                                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Summary Results</h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div v-if="reportData.total !== undefined" class="bg-blue-50 p-4 rounded-xl">
-                                            <div class="text-sm text-blue-600 font-medium mb-1">Total Count</div>
-                                            <div class="text-3xl font-bold text-blue-700">{{ reportData.total }}</div>
-                                        </div>
-                                        <div v-if="reportData.percentage !== undefined" class="bg-green-50 p-4 rounded-xl">
-                                            <div class="text-sm text-green-600 font-medium mb-1">Percentage</div>
-                                            <div class="text-3xl font-bold text-green-700">{{ reportData.percentage }}%</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
+                        <template v-if="reportData && reportData.indicator === 'Deaths among ART patients'">
+                            <ARTPatientsDeath :report-data="reportData"
+                                              :start-date="formatDate(form.start_date) || 'Start'"
+                                              :end-date="formatDate(form.end_date) || 'End'" />
+                        </template>
 
-                            <!-- Chart Visualization -->
-                            <template v-if="hasBreakdown() && shouldShowChart(form.indicator) && reportData">
-                                <Card class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
-                                    <div class="p-6">
-                                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Data Visualization</h3>
-                                        <div class="h-96">
-                                            <!-- Age Distribution Charts -->
-                                            <AgeChart v-if="getChartType(form.indicator) === 'histogram' && form.indicator.includes('Age')"
-                                                      :data="getChartData('age') as Record<string, number>"
-                                                      :title="reportData?.indicator || 'Age Distribution'" />
+                        <template v-if="reportData && reportData.indicator === 'Patients lost to follow-up and re-engaged'">
+                            <LTFandReengaged :report-data="reportData"
+                                             :start-date="formatDate(form.start_date) || 'Start'"
+                                             :end-date="formatDate(form.end_date) || 'End'" />
+                        </template>
 
-                                            <!-- Gender Charts -->
-                                            <GenderChart v-else-if="getChartType(form.indicator) === 'pie'"
-                                                         :data="getChartData('gender') as Array<{gender: string, count: number}>"
-                                                         :title="reportData?.indicator || 'Gender Distribution'" />
+                        <!-- Continue with other specialized components... -->
 
-                                            <!-- Retention Charts (by age group) -->
-                                            <AgeChart v-else-if="getChartType(form.indicator) === 'line' && form.indicator.includes('Retained')"
-                                                      :data="getChartData('retention') as Record<string, number>"
-                                                      :title="reportData?.indicator || 'Retention by Age Group'"
-                                                      :unit="'%'" />
-
-                                            <!-- Viral Load Charts -->
-                                            <ViralLoadChart v-else-if="getChartType(form.indicator) === 'grouped-bar' && form.indicator.includes('Viral')"
-                                                            :data="getChartData('viral') as {labels: string[], values: number[]}"
-                                                            :title="reportData?.indicator || 'Viral Load Suppression'" />
-
-                                            <!-- Default Bar Chart for other indicators -->
-                                            <AgeChart v-else-if="getChartType(form.indicator) === 'bar'"
-                                                      :data="getChartData('default') as Record<string, number>"
-                                                      :title="reportData?.indicator || 'Data Visualization'" />
-                                        </div>
-                                    </div>
-                                </Card>
-                            </template>
-
-                            <!-- Show breakdown table if available -->
-                            <Card v-if="hasBreakdown()" class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm overflow-hidden">
+                        <!-- Standard Breakdown Tables -->
+                        <template v-if="hasBreakdown() && reportData && !['Time to first Viral Load test', 'Deaths among ART patients'].includes(reportData.indicator)">
+                            <Card class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm overflow-hidden">
                                 <div class="p-6">
                                     <div class="flex items-center justify-between mb-6">
                                         <h3 class="text-lg font-semibold text-gray-800">Detailed Breakdown</h3>
                                         <div class="text-sm text-gray-600">
-                                            {{ getBreakdownKeys().length }} groups analyzed
+                                            {{ Object.keys(reportData.breakdown).length }} age groups analyzed
                                         </div>
                                     </div>
 
+                                    <!-- Table for standard indicators -->
                                     <div class="overflow-x-auto rounded-lg border border-gray-200">
-                                        <table class="min-w-full divide-y divide-gray-200">
+                                        <table v-if="tableType === 'standard'" class="min-w-full divide-y divide-gray-200">
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -788,29 +599,22 @@ const toggleDebug = () => {
                                                 </tr>
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200">
-                                                <template v-if="getBreakdownKeys().length > 0">
-                                                    <tr v-for="ageGroup in getBreakdownKeys()" :key="ageGroup"
-                                                        class="hover:bg-gray-50/50 transition-colors duration-150">
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                            {{ ageGroup }}
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                            {{ getBreakdownData(ageGroup)?.male || 0 }}
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                            {{ getBreakdownData(ageGroup)?.female || 0 }}
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                            {{ getBreakdownData(ageGroup)?.other || 0 }}
-                                                        </td>
-                                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                            {{ getBreakdownData(ageGroup)?.total || 0 }}
-                                                        </td>
-                                                    </tr>
-                                                </template>
-                                                <tr v-else>
-                                                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">
-                                                        No breakdown data available
+                                                <tr v-for="(data, ageGroup) in reportData.breakdown" :key="ageGroup"
+                                                    class="hover:bg-gray-50/50 transition-colors duration-150">
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {{ ageGroup }}
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                        {{ data.male }}
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                        {{ data.female }}
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                        {{ data.other }}
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                        {{ data.total }}
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -824,29 +628,28 @@ const toggleDebug = () => {
                                                 </tr>
                                             </tfoot>
                                         </table>
+
+                                        <!-- Continue with other table types... -->
                                     </div>
                                 </div>
                             </Card>
                         </template>
 
-                        <!-- No Data State -->
-                        <div v-else-if="reportData" class="text-center py-12">
-                            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 
-                                      flex items-center justify-center mx-auto mb-6">
-                                <ExclamationTriangleIcon class="h-10 w-10 text-amber-500" />
-                            </div>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-3">No Data Available</h3>
-                            <p class="text-gray-600 mb-6 max-w-md mx-auto">
-                                The report was generated but contains no data for the selected criteria.
-                                Try adjusting your filters or selecting a different indicator.
-                            </p>
-                            <Button @click="activeTab = 'filters'" class="bg-gradient-to-r from-blue-600 to-blue-700">
-                                Adjust Filters
-                            </Button>
+                        <!-- Summary Cards -->
+                        <div v-if="hasPercentageMetrics()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template v-if="isMissedAppointmentsReport()">
+                                <MissedAppointmentsSummaryCard :report-data="reportData" />
+                            </template>
+
+                            <template v-if="isPregnantWomenReport() && !isPregnantWomenLTFUReport()">
+                                <PregnantWomanSummaryCard :report-data="reportData" />
+                            </template>
+
+                            <!-- Continue with other summary cards... -->
                         </div>
 
                         <!-- Export & Actions -->
-                        <Card v-if="hasData()" class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+                        <Card class="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
                             <div class="p-6">
                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                     <div>
@@ -855,7 +658,15 @@ const toggleDebug = () => {
                                     </div>
                                     <div class="flex flex-wrap gap-3">
                                         <Button variant="outline" class="flex items-center gap-2">
-                                            <DocumentArrowDownIcon class="h-5 w-5" />
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            Export as PDF
+                                        </Button>
+                                        <Button variant="outline" class="flex items-center gap-2">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
                                             Export as CSV
                                         </Button>
                                         <Button @click="activeTab = 'filters'" class="bg-gradient-to-r from-blue-600 to-blue-700">
@@ -868,7 +679,7 @@ const toggleDebug = () => {
                     </div>
                 </div>
 
-                <!-- Initial Empty State -->
+                <!-- Empty State -->
                 <div v-if="activeTab === 'results' && !reportData" class="text-center py-16">
                     <div class="max-w-md mx-auto">
                         <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 
@@ -910,6 +721,26 @@ const toggleDebug = () => {
     opacity: 0;
 }
 
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
 /* Table hover effects */
 table tbody tr {
     transition: all 0.2s ease;
@@ -917,5 +748,28 @@ table tbody tr {
 
 table tbody tr:hover {
     background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* Card hover effects */
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Gradient text animation */
+.gradient-text {
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+}
+
+@keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 </style>

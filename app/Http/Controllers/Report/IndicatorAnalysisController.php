@@ -257,7 +257,7 @@ class IndicatorAnalysisController extends Controller
         }
 
         // Apply cohort/site/facility filters
-        $this->applyFilters($query, $cohortId, $siteId, $facilityId);
+        $this->applyInitialVisitFilters($query, $cohortId, $siteId, $facilityId);
 
         // Get distinct patients (one row per patient)
         $query->groupBy('patient_id', 'art_start_date');
